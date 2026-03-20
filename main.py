@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.templating import Jinja2Templates
 import sqlite3
 import asyncio
@@ -52,10 +52,17 @@ def start_measurement():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    while True:
-        temp = measure_temperature()
-        await websocket.send_json({"temperature": temp})
-        await asyncio.sleep(2)
+    try:
+        while True:
+            temp = measure_temperature()
+            try:
+                await websocket.send_json({"temperature": temp})
+            except WebSocketDisconnect:
+                break # stop the loop if client WebSocketDisconnect
+            await asyncio.sleep(2)
+    except Exception as e:
+        # Optional: log unexpected exceptions
+        print(f"WebSocket error: {e}")
 
 
 if __name__ == "__main__":
