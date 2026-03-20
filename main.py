@@ -1,69 +1,74 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.templating import Jinja2Templates
-import sqlite3
 import asyncio
-import uvicorn
+import random
+from math import log10, pow
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-
-def measure_temperature():
-    # Replace this with your real sensor code
-    import random
-    return round(20 + random.random() * 10, 2)
-
-
-def init_db():
-    conn = sqlite3.connect("measurements.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS measurements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            temperature REAL
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-init_db()
-
+SCHALTmin = 5.0
+HYSTERESE = 1.0
+TEMP1_min = 10.0
+TEMP2_min = -10.0
 
 @app.get("/")
-def home(request: Request):
+async def get_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+def taupunkt(t, r):
+    if t >= 0:
+        a, b = 7.5, 237.3
+    else:
+        a, b = 7.6, 240.7
+    sdd = 6.1078 * pow(10, (a * t)/(b + t))
+    dd = sdd * (r / 100)
+    v = log10(dd / 6.1078)
+    tt = (b * v) / (a - v)
+    return tt
 
-@app.post("/start")
-def start_measurement():
-    temp = measure_temperature()
-
-    conn = sqlite3.connect("measurements.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO measurements (temperature) VALUES (?)", (temp,))
-    conn.commit()
-    conn.close()
-
-    return {"temperature": temp}
-
+def measure_sensor():
+    # simulate sensor values
+    t1 = round(random.uniform(15, 25), 1)  # inside temp
+    h1 = round(random.uniform(30, 60), 1)  # inside humidity
+    t2 = round(random.uniform(-5, 20), 1)  # outside temp
+    h2 = round(random.uniform(20, 70), 1)  # outside humidity
+    return t1, h1, t2, h2
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-
     try:
         while True:
-            temp = measure_temperature()
+            t1, h1, t2, h2 = measure_sensor()
+            tp1 = taupunkt(t1, h1)
+            tp2 = taupunkt(t2, h2)
+            delta_tp = tp1 - tp2
+
+            rel = False
+            if delta_tp > (SCHALTmin + HYSTERESE):
+                rel = True
+            if delta_tp < SCHALTmin:
+                rel = False
+            if t1 < TEMP1_min:
+                rel = False
+            if t2 < TEMP2_min:
+                rel = False
+
+            data = {
+                "t1": t1, "h1": h1, "t2": t2, "h2": h2,
+                "tp1": round(tp1, 1), "tp2": round(tp2, 1),
+                "delta_tp": round(delta_tp, 1),
+                "relay": "ON" if rel else "OFF"
+            }
+
             try:
-                await websocket.send_json({"temperature": temp})
+                await websocket.send_json(data)
             except WebSocketDisconnect:
-                break # stop the loop if client WebSocketDisconnect
+                print("Client disconnected")
+                break
             await asyncio.sleep(2)
     except Exception as e:
-        # Optional: log unexpected exceptions
         print(f"WebSocket error: {e}")
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)

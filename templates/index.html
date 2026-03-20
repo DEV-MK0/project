@@ -2,30 +2,36 @@
 <html>
 <head>
     <title>Temperature Monitor</title>
+    <style>
+        body { font-family: Arial; }
+        table { border-collapse: collapse; width: 50%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #eee; }
+    </style>
 </head>
 <body>
-    <h1>Temperature Monitor</h1>
-
-    <button onclick="startMeasurement()">Start Measurement</button>
-
-    <p id="result">Waiting...</p>
+    <h2>Temperature and Humidity Monitor</h2>
+    <table>
+        <tr><th>Sensor</th><th>Temp (°C)</th><th>Humidity (%)</th><th>Dew Point (°C)</th></tr>
+        <tr><td>Inside</td><td id="t1">-</td><td id="h1">-</td><td id="tp1">-</td></tr>
+        <tr><td>Outside</td><td id="t2">-</td><td id="h2">-</td><td id="tp2">-</td></tr>
+    </table>
+    <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
+    <p>Relay: <span id="relay">-</span></p>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8000/ws");
-
+        let ws = new WebSocket("ws://" + location.host + "/ws");
         ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            document.getElementById("result").innerText =
-                "Live temperature: " + data.temperature + " °C";
+            let data = JSON.parse(event.data);
+            document.getElementById("t1").textContent = data.t1;
+            document.getElementById("h1").textContent = data.h1;
+            document.getElementById("tp1").textContent = data.tp1;
+            document.getElementById("t2").textContent = data.t2;
+            document.getElementById("h2").textContent = data.h2;
+            document.getElementById("tp2").textContent = data.tp2;
+            document.getElementById("delta_tp").textContent = data.delta_tp;
+            document.getElementById("relay").textContent = data.relay;
         };
-
-        function startMeasurement() {
-            fetch("/start", { method: "POST" })
-                .then(r => r.json())
-                .then(data => {
-                    alert("Saved: " + data.temperature + " °C");
-                });
-        }
     </script>
 </body>
 </html>
