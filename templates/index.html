@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Temperature Monitor</title>
+</head>
+<body>
+    <h1>Temperature Monitor</h1>
+
+    <button onclick="startMeasurement()">Start Measurement</button>
+
+    <p id="result">Waiting...</p>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            document.getElementById("result").innerText =
+                "Live temperature: " + data.temperature + " °C";
+        };
+
+        function startMeasurement() {
+            fetch("/start", { method: "POST" })
+                .then(r => r.json())
+                .then(data => {
+                    alert("Saved: " + data.temperature + " °C");
+                });
+        }
+    </script>
+</body>
+</html>
