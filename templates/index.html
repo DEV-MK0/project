@@ -30,11 +30,6 @@
             padding: 6px 10px;
         }
 
-        input {
-            padding: 6px;
-            width: 80px;
-        }
-
         textarea {
             width: 90%;
             height: 80px;
@@ -81,36 +76,10 @@
 <h2>Measurement Control</h2>
 
 <p>
-    Number of measurements: <input type="number" id="measure_count" value="5" min="1">
+    Number of measurements:
+    <input type="number" id="measure_count" value="5" min="1">
     <button onclick="startMeasurements()">Start</button>
 </p>
-
-<p id="measureStatus"></p>
-
-<hr>
-
-<h2>Database</h2>
-
-<button onclick="loadRows()">Fetch Rows</button>
-<button onclick="deleteAllRows()">Delete All Rows</button>
-
-<table id="dbTable">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>T1</th>
-            <th>H1</th>
-            <th>T2</th>
-            <th>H2</th>
-            <th>TP1</th>
-            <th>TP2</th>
-            <th>Delta</th>
-            <th>Relay</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
 
 <hr>
 
@@ -119,6 +88,7 @@
 <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
 <button onclick="runSQL()">Run SQL</button>
 
+<div id="sqlTableContainer"></div>
 <pre id="sqlResult"></pre>
 
 <script>
@@ -138,55 +108,10 @@
         document.getElementById("delta_tp").textContent = data.delta_tp;
         document.getElementById("relay").textContent = data.relay;
     };
-  
+
     async function startMeasurements() {
-      let count = document.getElementById("measure_count").value;
-      let res = await fetch(`/save_measurements?count=${count}`);
-      if(res.ok) alert("Measurements saved");
-      else alert("Error saving measurements");
-    }
-   
-    async function loadRows() {
-        const response = await fetch("/rows");
-        const rows = await response.json();
-
-        const tbody = document.querySelector("#dbTable tbody");
-        tbody.innerHTML = "";
-
-        rows.forEach(row => {
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${row[0]}</td>
-                <td>${row[1]}</td>
-                <td>${row[2]}</td>
-                <td>${row[3]}</td>
-                <td>${row[4]}</td>
-                <td>${row[5]}</td>
-                <td>${row[6]}</td>
-                <td>${row[7]}</td>
-                <td>${row[8]}</td>
-                <td><button onclick="deleteRow(${row[0]})">Delete</button></td>
-            `;
-
-            tbody.appendChild(tr);
-        });
-    }
-
-    async function deleteRow(id) {
-        await fetch(`/rows/${id}`, {
-            method: "DELETE"
-        });
-
-        loadRows();
-    }
-
-    async function deleteAllRows() {
-        await fetch("/rows", {
-            method: "DELETE"
-        });
-
-        loadRows();
+        let count = document.getElementById("measure_count").value;
+        await fetch(`/save_measurements?count=${count}`);
     }
 
     async function runSQL() {
@@ -202,8 +127,47 @@
 
         const result = await response.json();
 
-        document.getElementById("sqlResult").textContent =
-            JSON.stringify(result, null, 2);
+        const tableContainer = document.getElementById("sqlTableContainer");
+        const textOutput = document.getElementById("sqlResult");
+
+        tableContainer.innerHTML = "";
+        textOutput.textContent = "";
+
+        if (result.type === "table") {
+            let table = document.createElement("table");
+
+            let thead = document.createElement("thead");
+            let headRow = document.createElement("tr");
+
+            result.columns.forEach(col => {
+                let th = document.createElement("th");
+                th.textContent = col;
+                headRow.appendChild(th);
+            });
+
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+
+            let tbody = document.createElement("tbody");
+
+            result.rows.forEach(row => {
+                let tr = document.createElement("tr");
+
+                row.forEach(cell => {
+                    let td = document.createElement("td");
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+
+        } else {
+            textOutput.textContent = JSON.stringify(result.data, null, 2);
+        }
     }
 </script>
 
