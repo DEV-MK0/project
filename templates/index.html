@@ -4,35 +4,208 @@
     <title>Temperature Monitor</title>
     <link rel="icon" href="/static/favicon.ico">
     <style>
-        body { font-family: Arial; }
-        table { border-collapse: collapse; width: 50%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background-color: #eee; }
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 90%;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #eee;
+        }
+
+        button {
+            margin: 5px;
+            padding: 6px 10px;
+        }
+
+        input {
+            padding: 6px;
+            width: 80px;
+        }
+
+        textarea {
+            width: 90%;
+            height: 80px;
+            margin-top: 10px;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            width: 90%;
+        }
     </style>
 </head>
 <body>
-    <h2>Temperature and Humidity Monitor</h2>
-    <table>
-        <tr><th>Sensor</th><th>Temp (°C)</th><th>Humidity (%)</th><th>Dew Point (°C)</th></tr>
-        <tr><td>Inside</td><td id="t1">-</td><td id="h1">-</td><td id="tp1">-</td></tr>
-        <tr><td>Outside</td><td id="t2">-</td><td id="h2">-</td><td id="tp2">-</td></tr>
-    </table>
-    <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
-    <p>Relay: <span id="relay">-</span></p>
 
-    <script>
-        let ws = new WebSocket("ws://" + location.host + "/ws");
-        ws.onmessage = function(event) {
-            let data = JSON.parse(event.data);
-            document.getElementById("t1").textContent = data.t1;
-            document.getElementById("h1").textContent = data.h1;
-            document.getElementById("tp1").textContent = data.tp1;
-            document.getElementById("t2").textContent = data.t2;
-            document.getElementById("h2").textContent = data.h2;
-            document.getElementById("tp2").textContent = data.tp2;
-            document.getElementById("delta_tp").textContent = data.delta_tp;
-            document.getElementById("relay").textContent = data.relay;
-        };
-    </script>
+<h2>Temperature and Humidity Monitor</h2>
+
+<table>
+    <tr>
+        <th>Sensor</th>
+        <th>Temp (°C)</th>
+        <th>Humidity (%)</th>
+        <th>Dew Point (°C)</th>
+    </tr>
+    <tr>
+        <td>Inside</td>
+        <td id="t1">-</td>
+        <td id="h1">-</td>
+        <td id="tp1">-</td>
+    </tr>
+    <tr>
+        <td>Outside</td>
+        <td id="t2">-</td>
+        <td id="h2">-</td>
+        <td id="tp2">-</td>
+    </tr>
+</table>
+
+<p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
+<p>Relay: <span id="relay">-</span></p>
+
+<hr>
+
+<h2>Measurement Control</h2>
+
+<p>
+    Number of measurements: <input type="number" id="measure_count" value="5" min="1">
+    <button onclick="startMeasurements()">Start</button>
+</p>
+
+<p id="measureStatus"></p>
+
+<hr>
+
+<h2>Database</h2>
+
+<button onclick="loadRows()">Fetch Rows</button>
+<button onclick="deleteAllRows()">Delete All Rows</button>
+
+<table id="dbTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>T1</th>
+            <th>H1</th>
+            <th>T2</th>
+            <th>H2</th>
+            <th>TP1</th>
+            <th>TP2</th>
+            <th>Delta</th>
+            <th>Relay</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<hr>
+
+<h2>SQL Console</h2>
+
+<textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
+<button onclick="runSQL()">Run SQL</button>
+
+<pre id="sqlResult"></pre>
+
+<script>
+    let ws = new WebSocket("ws://" + location.host + "/ws");
+
+    ws.onmessage = function(event) {
+        let data = JSON.parse(event.data);
+
+        document.getElementById("t1").textContent = data.t1;
+        document.getElementById("h1").textContent = data.h1;
+        document.getElementById("tp1").textContent = data.tp1;
+
+        document.getElementById("t2").textContent = data.t2;
+        document.getElementById("h2").textContent = data.h2;
+        document.getElementById("tp2").textContent = data.tp2;
+
+        document.getElementById("delta_tp").textContent = data.delta_tp;
+        document.getElementById("relay").textContent = data.relay;
+    };
+  
+    async function startMeasurements() {
+      let count = document.getElementById("measure_count").value;
+      let res = await fetch(`/save_measurements?count=${count}`);
+      if(res.ok) alert("Measurements saved");
+      else alert("Error saving measurements");
+    }
+   
+    async function loadRows() {
+        const response = await fetch("/rows");
+        const rows = await response.json();
+
+        const tbody = document.querySelector("#dbTable tbody");
+        tbody.innerHTML = "";
+
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${row[0]}</td>
+                <td>${row[1]}</td>
+                <td>${row[2]}</td>
+                <td>${row[3]}</td>
+                <td>${row[4]}</td>
+                <td>${row[5]}</td>
+                <td>${row[6]}</td>
+                <td>${row[7]}</td>
+                <td>${row[8]}</td>
+                <td><button onclick="deleteRow(${row[0]})">Delete</button></td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function deleteRow(id) {
+        await fetch(`/rows/${id}`, {
+            method: "DELETE"
+        });
+
+        loadRows();
+    }
+
+    async function deleteAllRows() {
+        await fetch("/rows", {
+            method: "DELETE"
+        });
+
+        loadRows();
+    }
+
+    async function runSQL() {
+        const query = document.getElementById("sqlInput").value;
+
+        const response = await fetch("/sql", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ query: query })
+        });
+
+        const result = await response.json();
+
+        document.getElementById("sqlResult").textContent =
+            JSON.stringify(result, null, 2);
+    }
+</script>
+
 </body>
 </html>
