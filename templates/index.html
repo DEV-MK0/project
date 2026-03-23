@@ -45,6 +45,55 @@
 </head>
 <body>
 
+<div class="navbar">
+    <button onclick="showPage('overview')">Overview</button>
+    <button onclick="showPage('measurements')">Measurements</button>
+    <button onclick="showPage('database')">Database Control</button>
+</div>
+
+<style>
+.navbar {
+    margin-bottom: 20px;
+}
+
+.navbar button {
+    padding: 10px;
+    margin-right: 5px;
+}
+.page {
+    display: none;
+}
+.page.active {
+    display: block;
+}
+</style>
+
+<div id="overview" class="page active">
+    <h2>Temperature and Humidity Monitor</h2>
+    <button>Btn 1</button>
+</div>
+
+<div id="measurements" class="page">
+    <h2>Measurement Control</h2>
+    <button>Btn 2</button>
+</div>
+
+<div id="database" class="page">
+    <h2>Database</h2>
+    <button>Btn 3</button>
+</div>
+
+<script>
+    function showPage(pageId) {
+    document.querySelectorAll(".page").forEach(page => {
+        page.classList.remove("active");
+    });
+
+    document.getElementById(pageId).classList.add("active");
+}
+
+</script>
+
 <h2>Temperature and Humidity Monitor</h2>
 
 <table>
