@@ -244,5 +244,24 @@ async def save_measurements_endpoint(count: int = Query(..., gt=0)):
     await save_measurements(count)
     return {"status": "ok", "saved": count}
 
+@app.delete("/measurements/reset")
+def reset_measurements():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM measurements")
+    cur.execute("DELETE FROM sqlite_sequence WHERE name='measurements'")
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "reset"}
+
+@app.post("/measurements/select")
+async def select_measurments():
+    command = SQLCommand(query="SELECT * FROM measurements")
+    execute_sql(SQLCommand(command))
+
+    return {"status": "select"}
 
 init_db()

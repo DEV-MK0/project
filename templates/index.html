@@ -87,6 +87,8 @@
 
 <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
 <button onclick="runSQL()">Run SQL</button>
+<button onclick="selectTable()">Select Table</button>
+<button onclick="resetTable()">Reset Table</button>
 
 <div id="sqlTableContainer"></div>
 <pre id="sqlResult"></pre>
@@ -169,6 +171,70 @@
             textOutput.textContent = JSON.stringify(result.data, null, 2);
         }
     }
+    async function resetTable() {
+        if (!confirm("Reset table and counter?")) return;
+
+        await fetch("/measurements/reset", {
+            method: "DELETE"
+        });
+
+        loadRows();
+    }
+    async function selectTable() {
+        const response = await fetch("/sql", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                query: "SELECT * FROM measurements"
+            })
+        });
+
+        const result = await response.json();
+
+        const tableContainer = document.getElementById("sqlTableContainer");
+        const textOutput = document.getElementById("sqlResult");
+
+        tableContainer.innerHTML = "";
+        textOutput.textContent = "";
+
+        if (result.type === "table") {
+            let table = document.createElement("table");
+
+            let thead = document.createElement("thead");
+            let headRow = document.createElement("tr");
+
+            result.columns.forEach(col => {
+                let th = document.createElement("th");
+                th.textContent = col;
+                headRow.appendChild(th);
+            });
+
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+
+            let tbody = document.createElement("tbody");
+
+            result.rows.forEach(row => {
+                let tr = document.createElement("tr");
+
+                row.forEach(cell => {
+                    let td = document.createElement("td");
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+
+        } else {
+            textOutput.textContent = JSON.stringify(result.data, null, 2);
+        }
+    }     
 </script>
 
 </body>
