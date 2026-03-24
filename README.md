@@ -1,4 +1,8 @@
-Mindestanforderungen:
+**Projekt für die Taupuntklüftung**
+
+<img width="1885" height="870" alt="image" src="https://github.com/user-attachments/assets/7ca3feb8-7331-4e5e-adb3-71d47b4b3b7b" />
+
+**Mindestanforderungen:**
 - 2 Temperatur/Luftfeuchtigkeit Sensor
 - Werte Messen
 - Ventilator über Ergebnis von Taupunktberechnung an-/ausschalten
@@ -6,7 +10,7 @@ Mindestanforderungen:
 - Ergebnisse in einer Datenbank speichern.
 - Anzeige über eine Website.
 
-Taupunktlüftung Linkliste:
+**Taupunktlüftung Linkliste:**
 
 Video 1:
 https://www.youtube.com/watch?v=p11Ugj9NvS4&ab_channel=MakeMagazin
