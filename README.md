@@ -15,6 +15,7 @@
 - git commit -m "commit message"
 - git push
 - git pull
+- Revert: git reset --hard HEAD
 
 **Taupunktlüftung Linkliste:**
 
