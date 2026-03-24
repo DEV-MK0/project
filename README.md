@@ -11,10 +11,10 @@
 - Anzeige über eine Website.
 
 **GitHub CLI:**
-git add .
-git commit -m "commit message"
-git push
-git pull
+- git add .
+- git commit -m "commit message"
+- git push
+- git pull
 
 **Taupunktlüftung Linkliste:**
 
