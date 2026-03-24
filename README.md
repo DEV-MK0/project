@@ -10,6 +10,13 @@
 - Ergebnisse in einer Datenbank speichern.
 - Anzeige über eine Website.
 
+**GitHub CLI:**
+- git add .
+- git commit -m "commit message"
+- git push
+- git pull
+- Revert: git reset --hard HEAD
+
 **Taupunktlüftung Linkliste:**
 
 Video 1:
