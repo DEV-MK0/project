@@ -264,4 +264,21 @@ async def select_measurments():
 
     return {"status": "select"}
 
+@app.get("/measurements/history")
+def measurement_history(limit: int = 10):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    cur.execute(f"""
+        SELECT timestamp, t1, t2
+        FROM measurements
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    return rows[::-1]
+
 init_db()

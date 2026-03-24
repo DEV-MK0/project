@@ -42,6 +42,7 @@
             width: 90%;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -95,6 +96,30 @@
 </script>
 
 <h2>Temperature and Humidity Monitor</h2>
+
+<canvas id="liveChart" width="800" height="300"></canvas>
+<button onclick="loadHistory(10)">Last 10</button>
+<button onclick="loadHistory(50)">Last 50</button>
+<button onclick="loadHistory(100)">Last 100</button>
+
+<script>
+    async function loadHistory(limit) {
+    const response = await fetch(`/measurements/history?limit=${limit}`);
+    const rows = await response.json();
+
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.data.datasets[1].data = [];
+
+    rows.forEach(row => {
+        chart.data.labels.push(row[0]);
+        chart.data.datasets[0].data.push(row[1]);
+        chart.data.datasets[1].data.push(row[2]);
+    });
+
+    chart.update();
+    }
+</script>
 
 <table>
     <tr>
@@ -158,7 +183,21 @@
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
         document.getElementById("relay").textContent = data.relay;
-    };
+
+        const now = new Date().toLocaleTimeString();
+
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(data.t1);
+        chart.data.datasets[1].data.push(data.t2);
+
+        if (chart.data.labels.length > 20) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[1].data.shift();
+        }
+
+        chart.update();
+        };
 
     async function startMeasurements() {
         let count = document.getElementById("measure_count").value;
@@ -263,7 +302,7 @@
             thead.appendChild(headRow);
             table.appendChild(thead);
 
-            let tbody = document.createElement("tbody");
+           let tbody = document.createElement("tbody");
 
             result.rows.forEach(row => {
                 let tr = document.createElement("tr");
@@ -283,7 +322,28 @@
         } else {
             textOutput.textContent = JSON.stringify(result.data, null, 2);
         }
-    }     
+    }    
+    const ctx = document.getElementById("liveChart").getContext("2d");
+
+    const chart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Inside Temp",
+                    data: []
+                },
+                {
+                    label: "Outside Temp",
+                    data: []
+                }
+            ]
+        },
+        options: {
+            responsive: true
+        }
+    });
 </script>
 
 </body>
