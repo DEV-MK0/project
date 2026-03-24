@@ -1,350 +1,107 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Temperature Monitor</title>
     <link rel="icon" href="/static/favicon.ico">
-    <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 90%;
-            margin-top: 20px;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background-color: #eee;
-        }
-
-        button {
-            margin: 5px;
-            padding: 6px 10px;
-        }
-
-        textarea {
-            width: 90%;
-            height: 80px;
-            margin-top: 10px;
-        }
-
-        pre {
-            background: #f4f4f4;
-            padding: 10px;
-            width: 90%;
-        }
-    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/js/script.js" defer></script>
+  </head>
+  <body>
 
-<div class="navbar">
-    <button onclick="showPage('overview')">Overview</button>
-    <button onclick="showPage('measurements')">Measurements</button>
+    <div class="navbar">
+      <button onclick="showPage('overview')">Overview</button>
+      <button onclick="showPage('measurements')">Measurements</button>
     <button onclick="showPage('database')">Database Control</button>
-</div>
+    </div>
 
-<style>
-.navbar {
-    margin-bottom: 20px;
-}
-
-.navbar button {
-    padding: 10px;
-    margin-right: 5px;
-}
-.page {
-    display: none;
-}
-.page.active {
-    display: block;
-}
-</style>
-
-<div id="overview" class="page active">
+    <div id="overview" class="page active">
     <h2>Temperature and Humidity Monitor</h2>
-    <button>Btn 1</button>
-</div>
 
-<div id="measurements" class="page">
-    <h2>Measurement Control</h2>
-    <button>Btn 2</button>
-</div>
+      <canvas id="liveChart" width="800" height="300"></canvas>
+      <button onclick="loadHistory(10)">Get Last 10</button>
+      <button onclick="loadHistory(50)">Last 50</button>
+      <button onclick="loadHistory(100)">Last 100</button>
 
-<div id="database" class="page">
-    <h2>Database</h2>
-    <button>Btn 3</button>
-</div>
+      <table>
+        <tr>
+          <th>Sensor</th>
+          <th>Temp (°C)</th>
+          <th>Humidity (%)</th>
+          <th>Dew Point (°C)</th>
+          </tr>
+        <tr>
+          <td>Inside</td>
+          <td id="t1">-</td>
+          <td id="h1">-</td>
+          <td id="tp1">-</td>
+        </tr>
+        <tr>
+          <td>Outside</td>
+          <td id="t2">-</td>
+          <td id="h2">-</td>
+          <td id="tp2">-</td>
+        </tr>
+      </table>
 
-<script>
-    function showPage(pageId) {
-    document.querySelectorAll(".page").forEach(page => {
-        page.classList.remove("active");
-    });
+      <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
+      <p>Relay: <span id="relay">-</span></p>
 
-    document.getElementById(pageId).classList.add("active");
-}
+    </div>
 
-</script>
+    <div id="measurements" class="page">
+      <h2>Measurement Control</h2>
+      <button>Btn 2</button>
 
-<h2>Temperature and Humidity Monitor</h2>
+      <table>
+        <tr>
+          <th>Sensor</th>
+          <th>Temp (°C)</th>
+          <th>Humidity (%)</th>
+          <th>Dew Point (°C)</th>
+        </tr>
+        <tr>
+          <td>Inside</td>
+          <td id="t1">-</td>
+          <td id="h1">-</td>
+          <td id="tp1">-</td>
+        </tr>
+        <tr>
+          <td>Outside</td>
+          <td id="t2">-</td>
+          <td id="h2">-</td>
+          <td id="tp2">-</td>
+        </tr>
+      </table>
 
-<canvas id="liveChart" width="800" height="300"></canvas>
-<button onclick="loadHistory(10)">Get Last 10</button>
-<button onclick="loadHistory(50)">Last 50</button>
-<button onclick="loadHistory(100)">Last 100</button>
+      <hr>
 
-<script>
-    async function loadHistory(limit) {
-    const response = await fetch(`/measurements/history?limit=${limit}`);
-    const rows = await response.json();
+      <p>
+        Number of measurements:
+        <input type="number" id="measure_count" value="5" min="1">
+        <button onclick="startMeasurements()">Start</button>
+      </p>
 
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.data.datasets[1].data = [];
+      <hr>
 
-    rows.forEach(row => {
-        chart.data.labels.push(row[0]);
-        chart.data.datasets[0].data.push(row[1]);
-        chart.data.datasets[1].data.push(row[2]);
-    });
+      <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
+      <p>Relay: <span id="relay">-</span></p>
 
-    chart.update();
-    }
-</script>
+    </div>
 
-<table>
-    <tr>
-        <th>Sensor</th>
-        <th>Temp (°C)</th>
-        <th>Humidity (%)</th>
-        <th>Dew Point (°C)</th>
-    </tr>
-    <tr>
-        <td>Inside</td>
-        <td id="t1">-</td>
-        <td id="h1">-</td>
-        <td id="tp1">-</td>
-    </tr>
-    <tr>
-        <td>Outside</td>
-        <td id="t2">-</td>
-        <td id="h2">-</td>
-        <td id="tp2">-</td>
-    </tr>
-</table>
+    <div id="database" class="page">
 
-<p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
-<p>Relay: <span id="relay">-</span></p>
+      <h2>Database</h2>
+      <h2>SQL Console</h2>
 
-<hr>
+      <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
+      <button onclick="runSQL()">Run SQL</button>
+      <button onclick="selectTable()">Select Table</button>
+      <button onclick="resetTable()">Reset Table</button>
 
-<h2>Measurement Control</h2>
+      <div id="sqlTableContainer"></div>
+      <pre id="sqlResult"></pre>
+    </div>
 
-<p>
-    Number of measurements:
-    <input type="number" id="measure_count" value="5" min="1">
-    <button onclick="startMeasurements()">Start</button>
-</p>
-
-<hr>
-
-<h2>SQL Console</h2>
-
-<textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
-<button onclick="runSQL()">Run SQL</button>
-<button onclick="selectTable()">Select Table</button>
-<button onclick="resetTable()">Reset Table</button>
-
-<div id="sqlTableContainer"></div>
-<pre id="sqlResult"></pre>
-
-<script>
-    let ws = new WebSocket("ws://" + location.host + "/ws");
-
-    ws.onmessage = function(event) {
-        let data = JSON.parse(event.data);
-
-        document.getElementById("t1").textContent = data.t1;
-        document.getElementById("h1").textContent = data.h1;
-        document.getElementById("tp1").textContent = data.tp1;
-
-        document.getElementById("t2").textContent = data.t2;
-        document.getElementById("h2").textContent = data.h2;
-        document.getElementById("tp2").textContent = data.tp2;
-
-        document.getElementById("delta_tp").textContent = data.delta_tp;
-        document.getElementById("relay").textContent = data.relay;
-
-        const now = new Date().toLocaleTimeString();
-
-        chart.data.labels.push(now);
-        chart.data.datasets[0].data.push(data.t1);
-        chart.data.datasets[1].data.push(data.t2);
-
-        if (chart.data.labels.length > 20) {
-            chart.data.labels.shift();
-            chart.data.datasets[0].data.shift();
-            chart.data.datasets[1].data.shift();
-        }
-
-        chart.update();
-        };
-
-    async function startMeasurements() {
-        let count = document.getElementById("measure_count").value;
-        await fetch(`/save_measurements?count=${count}`);
-    }
-
-    async function runSQL() {
-        const query = document.getElementById("sqlInput").value;
-
-        const response = await fetch("/sql", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ query: query })
-        });
-
-        const result = await response.json();
-
-        const tableContainer = document.getElementById("sqlTableContainer");
-        const textOutput = document.getElementById("sqlResult");
-
-        tableContainer.innerHTML = "";
-        textOutput.textContent = "";
-
-        if (result.type === "table") {
-            let table = document.createElement("table");
-
-            let thead = document.createElement("thead");
-            let headRow = document.createElement("tr");
-
-            result.columns.forEach(col => {
-                let th = document.createElement("th");
-                th.textContent = col;
-                headRow.appendChild(th);
-            });
-
-            thead.appendChild(headRow);
-            table.appendChild(thead);
-
-            let tbody = document.createElement("tbody");
-
-            result.rows.forEach(row => {
-                let tr = document.createElement("tr");
-
-                row.forEach(cell => {
-                    let td = document.createElement("td");
-                    td.textContent = cell;
-                    tr.appendChild(td);
-                });
-
-                tbody.appendChild(tr);
-            });
-
-            table.appendChild(tbody);
-            tableContainer.appendChild(table);
-
-        } else {
-            textOutput.textContent = JSON.stringify(result.data, null, 2);
-        }
-    }
-    async function resetTable() {
-        if (!confirm("Reset table and counter?")) return;
-
-        await fetch("/measurements/reset", {
-            method: "DELETE"
-        });
-
-        loadRows();
-    }
-    async function selectTable() {
-        const response = await fetch("/sql", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                query: "SELECT * FROM measurements"
-            })
-        });
-
-        const result = await response.json();
-
-        const tableContainer = document.getElementById("sqlTableContainer");
-        const textOutput = document.getElementById("sqlResult");
-
-        tableContainer.innerHTML = "";
-        textOutput.textContent = "";
-
-        if (result.type === "table") {
-            let table = document.createElement("table");
-
-            let thead = document.createElement("thead");
-            let headRow = document.createElement("tr");
-
-            result.columns.forEach(col => {
-                let th = document.createElement("th");
-                th.textContent = col;
-                headRow.appendChild(th);
-            });
-
-            thead.appendChild(headRow);
-            table.appendChild(thead);
-
-           let tbody = document.createElement("tbody");
-
-            result.rows.forEach(row => {
-                let tr = document.createElement("tr");
-
-                row.forEach(cell => {
-                    let td = document.createElement("td");
-                    td.textContent = cell;
-                    tr.appendChild(td);
-                });
-
-                tbody.appendChild(tr);
-            });
-
-            table.appendChild(tbody);
-            tableContainer.appendChild(table);
-
-        } else {
-            textOutput.textContent = JSON.stringify(result.data, null, 2);
-        }
-    }    
-    const ctx = document.getElementById("liveChart").getContext("2d");
-
-    const chart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: "Inside Temp",
-                    data: []
-                },
-                {
-                    label: "Outside Temp",
-                    data: []
-                }
-            ]
-        },
-        options: {
-            responsive: true
-        }
-    });
-</script>
-
-</body>
+  </body>
 </html>
