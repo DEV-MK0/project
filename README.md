@@ -10,6 +10,12 @@
 - Ergebnisse in einer Datenbank speichern.
 - Anzeige über eine Website.
 
+Installation:
+- python -m venv venv
+- source venv/bin/activate
+- pip install -r requirements.txt
+- deactivate
+
 **GitHub CLI:**
 - git add .
 - git commit -m "commit message"

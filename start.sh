@@ -5,7 +5,7 @@
 set -e
 
 # Activate venv
-source ~/Documents/GitHub/venv/bin/activate
+source ~/Documents/GitHub/project/venv/bin/activate
 
 # Go to project folder
 cd "$(dirname "$0")"
