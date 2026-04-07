@@ -9,97 +9,59 @@
   </head>
   <body>
 
-    <div class="navbar">
-      <button onclick="showPage('overview')">Overview</button>
-      <button onclick="showPage('measurements')">Measurements</button>
-    <button onclick="showPage('database')">Database Control</button>
-    </div>
-
-    <div id="overview" class="page active">
     <h2>Temperature and Humidity Monitor</h2>
 
-      <canvas id="liveChart" width="800" height="300"></canvas>
-      <button onclick="loadHistory(10)">Get Last 10</button>
-      <button onclick="loadHistory(50)">Last 50</button>
-      <button onclick="loadHistory(100)">Last 100</button>
+    <canvas id="liveChart" width="800" height="300"></canvas>
+    <button onclick="loadHistory(10)">Get Last 10</button>
+    <button onclick="loadHistory(50)">Last 50</button>
+    <button onclick="loadHistory(100)">Last 100</button>
 
-      <table>
-        <tr>
-          <th>Sensor</th>
-          <th>Temp (°C)</th>
-          <th>Humidity (%)</th>
-          <th>Dew Point (°C)</th>
-          </tr>
-        <tr>
-          <td>Inside</td>
-          <td id="t1">-</td>
-          <td id="h1">-</td>
-          <td id="tp1">-</td>
+    <hr>
+
+    <h2>Measurement Control</h2>
+
+    <table>
+      <tr>
+        <th>Sensor</th>
+        <th>Temp (°C)</th>
+        <th>Humidity (%)</th>
+        <th>Dew Point (°C)</th>
         </tr>
-        <tr>
-          <td>Outside</td>
-          <td id="t2">-</td>
-          <td id="h2">-</td>
-          <td id="tp2">-</td>
-        </tr>
-      </table>
+      <tr>
+        <td>Inside</td>
+        <td id="t1">-</td>
+        <td id="h1">-</td>
+        <td id="tp1">-</td>
+      </tr>
+      <tr>
+        <td>Outside</td>
+        <td id="t2">-</td>
+        <td id="h2">-</td>
+        <td id="tp2">-</td>
+      </tr>
+    </table>
 
-      <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
-      <p>Relay: <span id="relay">-</span></p>
+    <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
+    <p>Relay: <span id="relay">-</span></p>
+    
+    <hr>
 
-    </div>
+    <p>
+      Number of measurements:
+      <input type="number" id="measure_count" value="5" min="1">
+      <button onclick="startMeasurements()">Start</button>
+    </p>
 
-    <div id="measurements" class="page">
-      <h2>Measurement Control</h2>
-      <button>Btn 2</button>
+    <hr>
 
-      <table>
-        <tr>
-          <th>Sensor</th>
-          <th>Temp (°C)</th>
-          <th>Humidity (%)</th>
-          <th>Dew Point (°C)</th>
-        </tr>
-        <tr>
-          <td>Inside</td>
-          <td id="t1">-</td>
-          <td id="h1">-</td>
-          <td id="tp1">-</td>
-        </tr>
-        <tr>
-          <td>Outside</td>
-          <td id="t2">-</td>
-          <td id="h2">-</td>
-          <td id="tp2">-</td>
-        </tr>
-      </table>
+    <h2>SQL Console</h2>
 
-      <hr>
+    <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
+    <button onclick="runSQL()">Run SQL</button>
+    <button onclick="selectTable()">Select Table</button>
+    <button onclick="resetTable()">Reset Table</button>
 
-      <p>
-        Number of measurements:
-        <input type="number" id="measure_count" value="5" min="1">
-        <button onclick="startMeasurements()">Start</button>
-      </p>
-
-      <hr>
-
-      <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
-      <p>Relay: <span id="relay">-</span></p>
-
-    </div>
-
-    <div id="database" class="page">
-
-      <h2>Database</h2>
-      <h2>SQL Console</h2>
-
-      <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
-      <button onclick="runSQL()">Run SQL</button>
-      <button onclick="selectTable()">Select Table</button>
-      <button onclick="resetTable()">Reset Table</button>
-
-      <div id="sqlTableContainer"></div>
+    <div id="sqlTableContainer"></div>
       <pre id="sqlResult"></pre>
     </div>
 
