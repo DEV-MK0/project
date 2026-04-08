@@ -1,69 +1,103 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Temperature Monitor</title>
-    <link rel="icon" href="/static/favicon.ico">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <script src="/static/js/script.js" defer></script>
-  </head>
-  <body>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temperature Monitor</title>
 
-    <h2>Temperature and Humidity Monitor</h2>
+  <link rel="icon" href="/static/favicon.ico">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script src="/static/js/script.js" defer></script>
+</head>
 
-    <canvas id="liveChart" width="800" height="300"></canvas>
-    <button onclick="loadHistory(10)">Get Last 10</button>
-    <button onclick="loadHistory(50)">Last 50</button>
-    <button onclick="loadHistory(100)">Last 100</button>
+<body>
 
-    <hr>
+  <div class="container">
 
-    <h2>Measurement Control</h2>
+    <header>
+      <h1>Temperature Monitor</h1>
+      <p>Live Temperatur, Luftfeuchtigkeit und SQL Zugriff</p>
+    </header>
 
-    <table>
-      <tr>
-        <th>Sensor</th>
-        <th>Temp (°C)</th>
-        <th>Humidity (%)</th>
-        <th>Dew Point (°C)</th>
-        </tr>
-      <tr>
-        <td>Inside</td>
-        <td id="t1">-</td>
-        <td id="h1">-</td>
-        <td id="tp1">-</td>
-      </tr>
-      <tr>
-        <td>Outside</td>
-        <td id="t2">-</td>
-        <td id="h2">-</td>
-        <td id="tp2">-</td>
-      </tr>
-    </table>
+    <section class="card">
+      <h2>Live Chart</h2>
+        <div class="chart-container">
+          <canvas id="liveChart"></canvas>
+        </div>
 
-    <p>Delta Taupunkt: <span id="delta_tp">-</span> °C</p>
-    <p>Relay: <span id="relay">-</span></p>
-    
-    <hr>
+      <div class="button-group">
+        <button onclick="loadHistory(10)">Last 10</button>
+        <button onclick="loadHistory(50)">Last 50</button>
+        <button onclick="loadHistory(100)">Last 100</button>
+      </div>
+    </section>
 
-    <p>
-      Number of measurements:
-      <input type="number" id="measure_count" value="5" min="1">
-      <button onclick="startMeasurements()">Start</button>
-    </p>
+    <section class="card">
+      <h2>Measurement Status</h2>
 
-    <hr>
+      <table>
+        <thead>
+          <tr>
+            <th>Sensor</th>
+            <th>Temp (°C)</th>
+            <th>Humidity (%)</th>
+            <th>Dew Point (°C)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Inside</td>
+            <td id="t1">-</td>
+            <td id="h1">-</td>
+            <td id="tp1">-</td>
+          </tr>
+          <tr>
+            <td>Outside</td>
+            <td id="t2">-</td>
+            <td id="h2">-</td>
+            <td id="tp2">-</td>
+          </tr>
+        </tbody>
+      </table>
 
-    <h2>SQL Console</h2>
+      <div class="status-grid">
+        <div>
+          <span>Delta Taupunkt</span>
+          <strong id="delta_tp">- °C</strong>
+        </div>
+        <div>
+          <span>Relay</span>
+          <strong id="relay">-</strong>
+        </div>
+      </div>
+    </section>
 
-    <textarea id="sqlInput">SELECT * FROM measurements;</textarea><br>
-    <button onclick="runSQL()">Run SQL</button>
-    <button onclick="selectTable()">Select Table</button>
-    <button onclick="resetTable()">Reset Table</button>
+    <section class="card">
+      <h2>Measurement Control</h2>
 
-    <div id="sqlTableContainer"></div>
+      <div class="control-row">
+        <input type="number" id="measure_count" value="5" min="1">
+        <button onclick="startMeasurements()">Start Measurements</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>SQL Console</h2>
+
+      <textarea id="sqlInput">SELECT * FROM measurements;</textarea>
+
+      <div class="button-group">
+        <button onclick="runSQL()">Run SQL</button>
+        <button onclick="selectTable()">Select Table</button>
+        <button onclick="resetTable()">Reset Table</button>
+      </div>
+
+      <div id="sqlTableContainer"></div>
       <pre id="sqlResult"></pre>
-    </div>
+    </section>
 
-  </body>
+  </div>
+
+</body>
 </html>

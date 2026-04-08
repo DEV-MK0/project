@@ -195,6 +195,7 @@ const chart = new Chart(ctx, {
         ]
     },
     options: {
-        responsive: true
+        responsive: true,
+        maintainAspectRatio: false
     }
 });
