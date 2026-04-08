@@ -1,6 +1,7 @@
 **Projekt für die Taupuntklüftung**
 
 <img width="1885" height="870" alt="image" src="https://github.com/user-attachments/assets/7ca3feb8-7331-4e5e-adb3-71d47b4b3b7b" />
+![showcase](https://github.com/user-attachments/assets/5e677ab0-9969-4d1b-bc6e-60112f05064a)
 
 **Mindestanforderungen:**
 - 2 Temperatur/Luftfeuchtigkeit Sensor
