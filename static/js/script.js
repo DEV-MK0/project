@@ -5,22 +5,45 @@ function showPage(pageId) {
 
     document.getElementById(pageId).classList.add("active");
 }
-async function loadHistory(limit) {
-	const response = await fetch(`/measurements/history?limit=${limit}`);
-	const rows = await response.json();
 
-	chart.data.labels = [];
-	chart.data.datasets[0].data = [];
-	chart.data.datasets[1].data = [];
+let maxPoints = 10;
+async function loadHistory(limit = maxPoints) {
+    maxPoints = limit;
 
-	rows.forEach(row => {
-		chart.data.labels.push(row[0]);
-		chart.data.datasets[0].data.push(row[1]);
-		chart.data.datasets[1].data.push(row[2]);
-	});
+    const response = await fetch(`/measurements/history?limit=${limit}`);
+    const rows = await response.json();
 
-	chart.update();
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.data.datasets[1].data = [];
+
+    rows.forEach(row => {
+        chart.data.labels.push(row[0]);
+        chart.data.datasets[0].data.push(row[1]);
+        chart.data.datasets[1].data.push(row[2]);
+    });
+
+    trimChartData();
+    chart.update();
 }
+function trimChartData() {
+    while (chart.data.labels.length > maxPoints) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+        chart.data.datasets[1].data.shift();
+    }
+}
+document.addEventListener("DOMContentLoaded", () => {
+    const pointLimit = document.getElementById("pointLimit");
+
+    maxPoints = parseInt(pointLimit.value, 10);
+
+    pointLimit.addEventListener("change", function() {
+        loadHistory(parseInt(this.value, 10));
+    });
+
+    loadHistory(maxPoints);
+});
 
 let ws = new WebSocket("ws://" + location.host + "/ws");
 
@@ -38,20 +61,19 @@ ws.onmessage = function(event) {
     document.getElementById("delta_tp").textContent = data.delta_tp;
     document.getElementById("relay").textContent = data.relay;
 
-    const now = new Date().toLocaleTimeString();
+    const now = new Date().toLocaleTimeString("de-DE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
 
     chart.data.labels.push(now);
     chart.data.datasets[0].data.push(data.t1);
     chart.data.datasets[1].data.push(data.t2);
 
-    if (chart.data.labels.length > 20) {
-        chart.data.labels.shift();
-        chart.data.datasets[0].data.shift();
-        chart.data.datasets[1].data.shift();
-    }
-
+    trimChartData();
     chart.update();
-    };
+};
 
 async function startMeasurements() {
     let count = document.getElementById("measure_count").value;

@@ -17,7 +17,7 @@
 
     <header>
       <h1>Temperature Monitor</h1>
-      <p>Live Temperatur, Luftfeuchtigkeit und SQL Zugriff</p>
+      <p>Live Temperature, Humidity und SQL Console</p>
     </header>
 
     <section class="card">
@@ -26,11 +26,14 @@
           <canvas id="liveChart"></canvas>
         </div>
 
-      <div class="button-group">
-        <button onclick="loadHistory(10)">Last 10</button>
-        <button onclick="loadHistory(50)">Last 50</button>
-        <button onclick="loadHistory(100)">Last 100</button>
-      </div>
+        <div class="button-group">
+        <label for="pointLimit">Limit:</label>
+          <select id="pointLimit">
+            <option value="10" selected>10</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div> 
     </section>
 
     <section class="card">

@@ -269,11 +269,11 @@ def measurement_history(limit: int = 10):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
 
-    cur.execute(f"""
-        SELECT timestamp, t1, t2
-        FROM measurements
-        ORDER BY id DESC
-        LIMIT ?
+    cur.execute("""
+    SELECT substr(timestamp, 12, 8), t1, t2
+    FROM measurements
+    ORDER BY id DESC
+    LIMIT ?
     """, (limit,))
 
     rows = cur.fetchall()
