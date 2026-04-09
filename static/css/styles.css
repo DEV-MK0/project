@@ -122,3 +122,29 @@ textarea {
   width: 100% !important;
   height: 100% !important;
 }
+
+.progress-circle {
+  display: inline-block;
+  margin-left: 10px;
+}
+
+.progress-circle svg {
+  transform: rotate(-90deg);
+}
+
+.progress-circle circle {
+  fill: none;
+  stroke-width: 4;
+}
+
+.progress-circle .bg {
+  stroke: #ddd;
+}
+
+.progress-circle .progress {
+  stroke: green;
+  stroke-linecap: round;
+  stroke-dasharray: 125.6;
+  stroke-dashoffset: 125.6;
+  transition: stroke-dashoffset 0.1s linear;
+}

@@ -77,6 +77,9 @@ ws.onmessage = function(event) {
 
 async function startMeasurements() {
     let count = document.getElementById("measure_count").value;
+    const duration = count * 2;
+
+    startProgress(duration);
     await fetch(`/save_measurements?count=${count}`);
 }
 
@@ -221,3 +224,31 @@ const chart = new Chart(ctx, {
         maintainAspectRatio: false
     }
 });
+
+function startProgress(durationSeconds) {
+    const circle = document.querySelector(".progress-circle .progress");
+    const radius = 20;
+    const circumference = 2 * Math.PI * radius;
+
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = circumference;
+
+    let startTime = null;
+
+    function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+
+        const elapsed = (timestamp - startTime) / 1000;
+        const progress = Math.min(elapsed / durationSeconds, 1);
+
+        const offset = circumference * (1 - progress);
+        circle.style.strokeDashoffset = offset;
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+circle.style.strokeDashoffset = circumference;
