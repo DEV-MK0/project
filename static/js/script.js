@@ -1,11 +1,3 @@
-function showPage(pageId) {
-    document.querySelectorAll(".page").forEach(page => {
-        page.classList.remove("active");
-    });
-
-    document.getElementById(pageId).classList.add("active");
-}
-
 let maxPoints = 10;
 async function loadHistory(limit = maxPoints) {
     maxPoints = limit;
@@ -73,11 +65,15 @@ ws.onmessage = function(event) {
 
     trimChartData();
     chart.update();
+
 };
 
 async function startMeasurements() {
     let count = document.getElementById("measure_count").value;
     const duration = count * 2;
+
+    const status = document.getElementById("measureStatus");
+    status.style.display = "none";
 
     startProgress(duration);
     await fetch(`/save_measurements?count=${count}`);
@@ -227,7 +223,9 @@ const chart = new Chart(ctx, {
 
 function startProgress(durationSeconds) {
     const circle = document.querySelector(".progress-circle .progress");
-    const radius = 20;
+    const status = document.getElementById("measureStatus");
+
+    const radius = 16;
     const circumference = 2 * Math.PI * radius;
 
     circle.style.strokeDasharray = circumference;
@@ -246,9 +244,36 @@ function startProgress(durationSeconds) {
 
         if (progress < 1) {
             requestAnimationFrame(animate);
+        } else {
+            status.style.display = "inline";
         }
     }
 
     requestAnimationFrame(animate);
+    circle.style.strokeDashoffset = circumference;
 }
-circle.style.strokeDashoffset = circumference;
+
+document.addEventListener("DOMContentLoaded", async () => {
+    const logToggle = document.getElementById("logToggle");
+    const logLabel = document.getElementById("logLabel");
+
+    // 1. read backend state
+    const res = await fetch("/get_logging");
+    const data = await res.json();
+
+    // 2. apply state WITHOUT triggering update
+    logToggle.checked = data.logging;
+
+    function updateLogLabel() {
+        const enabled = logToggle.checked;
+
+        logLabel.textContent = enabled
+            ? "Logging enabled"
+            : "Logging disabled";
+
+        fetch(`/set_logging?enabled=${enabled}`);
+    }
+
+    logToggle.addEventListener("change", updateLogLabel);
+    updateLogLabel();
+});

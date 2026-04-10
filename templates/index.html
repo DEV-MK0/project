@@ -27,13 +27,23 @@
         </div>
 
         <div class="button-group">
-        <label for="pointLimit">Limit:</label>
+          <label for="pointLimit">Limit:</label>
           <select id="pointLimit">
             <option value="10" selected>10</option>
+            <option value="25">25</option>
             <option value="50">50</option>
-            <option value="100">100</option>
           </select>
-        </div> 
+
+          <div class="control-row">
+            <span id="logLabel">Logging</span>
+
+            <label class="switch">
+              <input type="checkbox" id="logToggle" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+        </div>
     </section>
 
     <section class="card">
@@ -84,11 +94,13 @@
         <button onclick="startMeasurements()">Start Measurements</button>
 
         <div class="progress-circle">
-          <svg width="50" height="50">
-            <circle class="bg" cx="25" cy="25" r="20"></circle>
-            <circle class="progress" cx="25" cy="25" r="20"></circle>
+          <svg width="36" height="36">
+            <circle class="bg" cx="18" cy="18" r="16"></circle>
+            <circle class="progress" cx="18" cy="18" r="16"></circle>
           </svg>
         </div>
+
+        <span id="measureStatus" class="measure-status">✓ Done</span>
       </div>
     </section>
 

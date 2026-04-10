@@ -1,6 +1,9 @@
 import asyncio
 import random
 import sqlite3
+import time
+import threading
+import json
 from math import log10, pow
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
@@ -17,7 +20,8 @@ HYSTERESE = 1.0
 TEMP1_min = 10.0
 TEMP2_min = -10.0
 DB_FILE = "measurements.db"
-
+logging_thread = None
+STATE_FILE = "state.json"
 
 @app.get("/")
 async def get_index(request: Request):
@@ -239,6 +243,28 @@ async def save_measurements(count):
         await asyncio.sleep(2)
 
 
+def logging_loop():
+
+    while state["logging"]:
+        try:
+            asyncio.run(save_measurements(1))
+        except Exception as e:
+            print("Logging error:", e)
+
+@app.get("/set_logging")
+def set_logging(enabled: bool):
+    global logging_thread
+
+    state["logging"] = enabled
+    save_state()
+
+    if enabled:
+        if logging_thread is None or not logging_thread.is_alive():
+            logging_thread = threading.Thread(target=logging_loop, daemon=True)
+            logging_thread.start()
+
+    return state
+
 @app.get("/save_measurements")
 async def save_measurements_endpoint(count: int = Query(..., gt=0)):
     await save_measurements(count)
@@ -282,3 +308,24 @@ def measurement_history(limit: int = 10):
     return rows[::-1]
 
 init_db()
+
+def load_state():
+    try:
+        with open(STATE_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {"logging": False}
+
+def save_state():
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f)
+
+state = load_state()
+
+if state["logging"]:
+    logging_thread = threading.Thread(target=logging_loop, daemon=True)
+    logging_thread.start()
+
+@app.get("/get_logging")
+def get_logging():
+    return state
