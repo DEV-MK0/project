@@ -13,6 +13,25 @@
 
 <body>
 
+  <nav class="top-nav">
+    <div class="nav-left">
+      <a href="#live-chart">Live Chart</a>
+      <a href="#status">Measurement Status</a>
+      <a href="#control">Measurement Control</a>
+      <a href="#sql">SQL Console</a>
+    </div>
+
+    <div class="nav-right">
+      <div class="theme-control">
+        <span class="theme-label">Dark Mode</span>
+          <label class="switch">
+          <input type="checkbox" id="themeToggle">
+        <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </nav>
+
   <div class="container">
 
     <header>
@@ -20,7 +39,7 @@
       <p>Live Temperature, Humidity und SQL Console</p>
     </header>
 
-    <section class="card">
+    <section class="card" id="live-chart">
       <h2>Live Chart</h2>
         <div class="chart-container">
           <canvas id="liveChart"></canvas>
@@ -46,7 +65,7 @@
         </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="status">
       <h2>Measurement Status</h2>
 
       <table>
@@ -86,7 +105,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="control">
       <h2>Measurement Control</h2>
 
       <div class="control-row">
@@ -104,7 +123,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="sql">
       <h2>SQL Console</h2>
 
       <textarea id="sqlInput">SELECT * FROM measurements;</textarea>

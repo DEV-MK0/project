@@ -314,7 +314,11 @@ def load_state():
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except:
-        return {"logging": False}
+        return {
+            "logging": False,
+            "theme": "light"
+        }
+
 
 def save_state():
     with open(STATE_FILE, "w") as f:
@@ -329,3 +333,18 @@ if state["logging"]:
 @app.get("/get_logging")
 def get_logging():
     return state
+
+@app.get("/get_theme")
+def get_theme():
+    return {"theme": state.get("theme", "light")}
+
+
+@app.get("/set_theme")
+def set_theme(theme: str):
+    if theme not in ["light", "dark"]:
+        return {"error": "invalid theme"}
+
+    state["theme"] = theme
+    save_state()
+
+    return {"theme": theme}

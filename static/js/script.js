@@ -277,3 +277,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     logToggle.addEventListener("change", updateLogLabel);
     updateLogLabel();
 });
+
+async function applyTheme(theme) {
+    document.body.classList.toggle("dark", theme === "dark");
+    document.getElementById("themeToggle").checked = theme === "dark";
+}
+
+async function initTheme() {
+    const res = await fetch("/get_theme");
+    const data = await res.json();
+    applyTheme(data.theme);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await initTheme();
+
+    const toggle = document.getElementById("themeToggle");
+
+    toggle.addEventListener("change", async () => {
+        const theme = toggle.checked ? "dark" : "light";
+
+        await fetch(`/set_theme?theme=${theme}`);
+        applyTheme(theme);
+    });
+});

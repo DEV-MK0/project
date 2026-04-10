@@ -1,8 +1,8 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #f5f7fa;
-  color: #1f2937;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .container {
@@ -21,14 +21,13 @@ header h1 {
 }
 
 header p {
-  color: #6b7280;
-}
+  color: var(--muted);}
 
 .card {
-  background: white;
   border-radius: 14px;
   padding: 24px;
   margin-bottom: 24px;
+  background: var(--card);
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
@@ -45,7 +44,7 @@ h2 {
 }
 
 button {
-  background: #2563eb;
+  background: var(--primary);
   color: white;
   border: none;
   padding: 10px 16px;
@@ -70,11 +69,19 @@ th, td {
 }
 
 th {
-  background: #f3f4f6;
+  background: var(--bg);
+}
+
+td {
+  background: var(--surface);
 }
 
 tr:nth-child(even) {
   background: #f9fafb;
+}
+
+tr:nth-child(even) td {
+  background: var(--surface-alt);
 }
 
 .status-grid {
@@ -100,6 +107,7 @@ input, textarea {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
+  border: 1px solid var(--border);
 }
 
 input[type="number"] {
@@ -200,3 +208,84 @@ textarea {
 .switch input:checked + .slider::before {
   transform: translateX(22px);
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.top-nav {
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 12px 20px;
+  background: #111827;
+  box-sizing: border-box;
+}
+
+.nav-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+}
+
+.top-nav a {
+  color: #ffffff !important;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.top-nav a:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-alt: #f3f4f6;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #d1d5db;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+}
+
+body.dark {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-alt: #0b1220;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #334155;
+
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+}
+
+.theme-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-left: auto;
+  padding-right: 8px;
+}
+.theme-label {
+  color: #ffffff !important;
+  white-space: nowrap;
+}
+
