@@ -301,3 +301,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         applyTheme(theme);
     });
 });
+
+async function setinterval() {
+    let interval = document.getElementById("interval").value;
+    await fetch(`/set_interval?new_interval=${interval}`);
+}

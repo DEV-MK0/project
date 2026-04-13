@@ -22,6 +22,7 @@ TEMP2_min = -10.0
 DB_FILE = "measurements.db"
 logging_thread = None
 STATE_FILE = "state.json"
+interval = 2
 
 @app.get("/")
 async def get_index(request: Request):
@@ -90,7 +91,7 @@ async def websocket_endpoint(websocket: WebSocket):
             except WebSocketDisconnect:
                 break
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(interval)
 
     except Exception as e:
         print(f"WebSocket error: {e}")
@@ -348,3 +349,9 @@ def set_theme(theme: str):
     save_state()
 
     return {"theme": theme}
+
+@app.get("/set_interval")
+def set_interval(new_interval):
+    global interval
+    interval = int ( new_interval )
+    return { "status": "ok" }
