@@ -196,20 +196,31 @@ async function initLogging() {
 /* -------------------- Theme -------------------- */
 
 function applyTheme(theme) {
-    document.body.classList.toggle("dark", theme === "dark");
+    document.documentElement.classList.toggle("dark", theme === "dark");
     document.getElementById("themeToggle").checked = theme === "dark";
+    localStorage.setItem("theme", theme);
 }
 
 async function initTheme() {
-    const data = await api("/get_theme");
-    applyTheme(data.theme);
-
     const toggle = document.getElementById("themeToggle");
 
+    // 1. get theme (prefer localStorage for speed)
+    let theme = localStorage.getItem("theme");
+
+    if (!theme) {
+        const data = await api("/get_theme");
+        theme = data.theme;
+    }
+
+    // 2. apply theme
+    applyTheme(theme);
+
+    // 3. bind toggle
     toggle.addEventListener("change", async () => {
-        const theme = toggle.checked ? "dark" : "light";
-        await fetch(`/set_theme?theme=${theme}`);
-        applyTheme(theme);
+        const newTheme = toggle.checked ? "dark" : "light";
+
+        applyTheme(newTheme); // immediate UI update
+        await fetch(`/set_theme?theme=${newTheme}`);
     });
 }
 

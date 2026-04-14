@@ -9,6 +9,14 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css">
   <script src="/static/js/script.js" defer></script>
+  <script>
+  (function () {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+  })();
+</script>
 </head>
 
 <body>
