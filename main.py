@@ -4,7 +4,7 @@ import sqlite3
 import time
 import threading
 import json
-from math import log10, pow
+from math import log10
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
@@ -20,36 +20,139 @@ HYSTERESE = 1.0
 TEMP1_min = 10.0
 TEMP2_min = -10.0
 DB_FILE = "measurements.db"
-logging_thread = None
 STATE_FILE = "state.json"
+
 interval = 2
+logging_thread = None
+
+
+# -------------------- State Handling --------------------
+
+def load_state():
+    try:
+        with open(STATE_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {
+            "logging": False,
+            "theme": "light",
+            "interval": 2,
+            "pointLimit": 10
+        }
+
+
+def _save_state():
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def state_get(key, default=None):
+    return state.get(key, default)
+
+
+def state_set(key, value):
+    state[key] = value
+    _save_state()
+
+
+# -------------------- Core Logic --------------------
+
+def taupunkt(t, r):
+    a, b = (7.5, 237.3) if t >= 0 else (7.6, 240.7)
+
+    sdd = 6.1078 * (10 ** ((a * t) / (b + t)))
+    dd = sdd * (r / 100)
+    v = log10(dd / 6.1078)
+
+    return (b * v) / (a - v)
+
+
+def measure_sensor():
+    return (
+        round(random.uniform(15, 25), 1),
+        round(random.uniform(30, 60), 1),
+        round(random.uniform(-5, 20), 1),
+        round(random.uniform(20, 70), 1),
+    )
+
+
+def compute_measurement():
+    t1, h1, t2, h2 = measure_sensor()
+
+    tp1 = taupunkt(t1, h1)
+    tp2 = taupunkt(t2, h2)
+    delta_tp = tp1 - tp2
+
+    relay_on = (
+        delta_tp > (SCHALTmin + HYSTERESE)
+        and t1 >= TEMP1_min
+        and t2 >= TEMP2_min
+    )
+
+    return {
+        "t1": t1,
+        "h1": h1,
+        "t2": t2,
+        "h2": h2,
+        "tp1": round(tp1, 1),
+        "tp2": round(tp2, 1),
+        "delta_tp": round(delta_tp, 1),
+        "relay": "ON" if relay_on else "OFF"
+    }
+
+
+# -------------------- Database --------------------
+
+def init_db():
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS measurements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                t1 REAL,
+                h1 REAL,
+                t2 REAL,
+                h2 REAL,
+                tp1 REAL,
+                tp2 REAL,
+                delta_tp REAL,
+                relay TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+
+def save_measurement(data):
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("""
+            INSERT INTO measurements (t1,h1,t2,h2,tp1,tp2,delta_tp,relay)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (
+            data["t1"], data["h1"], data["h2"], data["t2"],
+            data["tp1"], data["tp2"], data["delta_tp"], data["relay"]
+        ))
+
+
+def save_measurement_once():
+    data = compute_measurement()
+    save_measurement(data)
+
+
+# -------------------- Logging Thread --------------------
+
+def logging_loop():
+    while state_get("logging"):
+        try:
+            save_measurement_once()
+            time.sleep(interval)
+        except Exception as e:
+            print("Logging error:", e)
+
+
+# -------------------- API --------------------
 
 @app.get("/")
 async def get_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-
-
-def taupunkt(t, r):
-    if t >= 0:
-        a, b = 7.5, 237.3
-    else:
-        a, b = 7.6, 240.7
-
-    sdd = 6.1078 * pow(10, (a * t) / (b + t))
-    dd = sdd * (r / 100)
-    v = log10(dd / 6.1078)
-    tt = (b * v) / (a - v)
-
-    return tt
-
-
-def measure_sensor():
-    t1 = round(random.uniform(15, 25), 1)
-    h1 = round(random.uniform(30, 60), 1)
-    t2 = round(random.uniform(-5, 20), 1)
-    h2 = round(random.uniform(20, 70), 1)
-
-    return t1, h1, t2, h2
 
 
 @app.websocket("/ws")
@@ -58,41 +161,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            t1, h1, t2, h2 = measure_sensor()
-
-            tp1 = taupunkt(t1, h1)
-            tp2 = taupunkt(t2, h2)
-            delta_tp = tp1 - tp2
-
-            rel = False
-
-            if delta_tp > (SCHALTmin + HYSTERESE):
-                rel = True
-            if delta_tp < SCHALTmin:
-                rel = False
-            if t1 < TEMP1_min:
-                rel = False
-            if t2 < TEMP2_min:
-                rel = False
-
-            data = {
-                "t1": t1,
-                "h1": h1,
-                "t2": t2,
-                "h2": h2,
-                "tp1": round(tp1, 1),
-                "tp2": round(tp2, 1),
-                "delta_tp": round(delta_tp, 1),
-                "relay": "ON" if rel else "OFF"
-            }
-
-            try:
-                await websocket.send_json(data)
-            except WebSocketDisconnect:
-                break
-
+            data = compute_measurement()
+            await websocket.send_json(data)
             await asyncio.sleep(interval)
-
+    except WebSocketDisconnect:
+        pass
     except Exception as e:
         print(f"WebSocket error: {e}")
 
@@ -103,161 +176,40 @@ class SQLCommand(BaseModel):
 
 @app.post("/sql")
 def execute_sql(command: SQLCommand):
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
+    with sqlite3.connect(DB_FILE) as conn:
+        cur = conn.cursor()
 
-    try:
-        cur.execute(command.query)
+        try:
+            cur.execute(command.query)
 
-        if command.query.strip().lower().startswith("select"):
-            rows = cur.fetchall()
-            columns = [desc[0] for desc in cur.description]
+            if command.query.strip().lower().startswith("select"):
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
 
-            result = {
-                "type": "table",
-                "columns": columns,
-                "rows": rows
-            }
-        else:
-            conn.commit()
-            result = {
-                "type": "text",
-                "data": {"status": "ok"}
-            }
+                return {
+                    "type": "table",
+                    "columns": columns,
+                    "rows": rows
+                }
 
-    except Exception as e:
-        result = {
-            "type": "text",
-            "data": {"error": str(e)}
-        }
+            return {"type": "text", "data": {"status": "ok"}}
 
-    conn.close()
-    return result
+        except Exception as e:
+            return {"type": "text", "data": {"error": str(e)}}
 
 
 @app.post("/measurements/start")
 async def start_measurements(count: int = Body(..., embed=True)):
     for _ in range(count):
-        t1, h1, t2, h2 = measure_sensor()
-
-        tp1 = taupunkt(t1, h1)
-        tp2 = taupunkt(t2, h2)
-        delta_tp = tp1 - tp2
-
-        rel = False
-
-        if delta_tp > (SCHALTmin + HYSTERESE):
-            rel = True
-        if delta_tp < SCHALTmin:
-            rel = False
-        if t1 < TEMP1_min:
-            rel = False
-        if t2 < TEMP2_min:
-            rel = False
-
-        data = {
-            "t1": t1,
-            "h1": h1,
-            "t2": t2,
-            "h2": h2,
-            "tp1": round(tp1, 1),
-            "tp2": round(tp2, 1),
-            "delta_tp": round(delta_tp, 1),
-            "relay": "ON" if rel else "OFF"
-        }
-
-        save_measurement(data)
-
+        save_measurement_once()
     return {"stored": count}
 
-
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS measurements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            t1 REAL,
-            h1 REAL,
-            t2 REAL,
-            h2 REAL,
-            tp1 REAL,
-            tp2 REAL,
-            delta_tp REAL,
-            relay TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-def save_measurement(data):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-
-    c.execute("""
-        INSERT INTO measurements (t1,h1,t2,h2,tp1,tp2,delta_tp,relay)
-        VALUES (?,?,?,?,?,?,?,?)
-    """, (
-        data["t1"],
-        data["h1"],
-        data["t2"],
-        data["h2"],
-        data["tp1"],
-        data["tp2"],
-        data["delta_tp"],
-        data["relay"]
-    ))
-
-    conn.commit()
-    conn.close()
-
-
-async def save_measurements(count):
-    for _ in range(count):
-        t1, h1, t2, h2 = measure_sensor()
-
-        tp1 = taupunkt(t1, h1)
-        tp2 = taupunkt(t2, h2)
-        delta_tp = tp1 - tp2
-
-        rel = "OFF"
-
-        if delta_tp > (SCHALTmin + HYSTERESE) and t1 >= TEMP1_min and t2 >= TEMP2_min:
-            rel = "ON"
-
-        data = {
-            "t1": t1,
-            "h1": h1,
-            "t2": t2,
-            "h2": h2,
-            "tp1": round(tp1, 1),
-            "tp2": round(tp2, 1),
-            "delta_tp": round(delta_tp, 1),
-            "relay": rel
-        }
-
-        save_measurement(data)
-        await asyncio.sleep(2)
-
-
-def logging_loop():
-
-    while state["logging"]:
-        try:
-            asyncio.run(save_measurements(1))
-        except Exception as e:
-            print("Logging error:", e)
 
 @app.get("/set_logging")
 def set_logging(enabled: bool):
     global logging_thread
 
-    state["logging"] = enabled
-    save_state()
+    state_set("logging", enabled)
 
     if enabled:
         if logging_thread is None or not logging_thread.is_alive():
@@ -266,78 +218,46 @@ def set_logging(enabled: bool):
 
     return state
 
+
 @app.get("/save_measurements")
 async def save_measurements_endpoint(count: int = Query(..., gt=0)):
-    await save_measurements(count)
+    for _ in range(count):
+        save_measurement_once()
+        await asyncio.sleep(interval)
     return {"status": "ok", "saved": count}
+
 
 @app.delete("/measurements/reset")
 def reset_measurements():
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM measurements")
-    cur.execute("DELETE FROM sqlite_sequence WHERE name='measurements'")
-
-    conn.commit()
-    conn.close()
-
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("DELETE FROM measurements")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='measurements'")
     return {"status": "reset"}
 
-@app.post("/measurements/select")
-async def select_measurments():
-    command = SQLCommand(query="SELECT * FROM measurements")
-    execute_sql(SQLCommand(command))
-
-    return {"status": "select"}
 
 @app.get("/measurements/history")
 def measurement_history(limit: int = 10):
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT substr(timestamp, 12, 8), t1, t2
-    FROM measurements
-    ORDER BY id DESC
-    LIMIT ?
-    """, (limit,))
-
-    rows = cur.fetchall()
-    conn.close()
+    with sqlite3.connect(DB_FILE) as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT substr(timestamp, 12, 8), t1, t2
+            FROM measurements
+            ORDER BY id DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cur.fetchall()
 
     return rows[::-1]
 
-init_db()
-
-def load_state():
-    try:
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {
-            "logging": False,
-            "theme": "light"
-        }
-
-
-def save_state():
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f)
-
-state = load_state()
-
-if state["logging"]:
-    logging_thread = threading.Thread(target=logging_loop, daemon=True)
-    logging_thread.start()
 
 @app.get("/get_logging")
 def get_logging():
     return state
 
+
 @app.get("/get_theme")
 def get_theme():
-    return {"theme": state.get("theme", "light")}
+    return {"theme": state_get("theme", "light")}
 
 
 @app.get("/set_theme")
@@ -345,13 +265,41 @@ def set_theme(theme: str):
     if theme not in ["light", "dark"]:
         return {"error": "invalid theme"}
 
-    state["theme"] = theme
-    save_state()
-
+    state_set("theme", theme)
     return {"theme": theme}
 
+
 @app.get("/set_interval")
-def set_interval(new_interval):
+def set_interval(new_interval: int):
     global interval
-    interval = int ( new_interval )
-    return { "status": "ok" }
+    interval = int(new_interval)
+
+    state_set("interval", interval)
+    return {"status": "ok"}
+
+
+@app.get("/get_interval")
+def get_interval():
+    return {"interval": state_get("interval", 2)}
+
+
+@app.get("/get_point_limit")
+def get_point_limit():
+    return {"pointLimit": state_get("pointLimit", 10)}
+
+
+@app.get("/set_point_limit")
+def set_point_limit(limit: int):
+    state_set("pointLimit", int(limit))
+    return {"status": "ok"}
+
+# -------------------- Init --------------------
+
+init_db()
+state = load_state()
+
+interval = state_get("interval", 2)
+
+if state_get("logging"):
+    logging_thread = threading.Thread(target=logging_loop, daemon=True)
+    logging_thread.start()
