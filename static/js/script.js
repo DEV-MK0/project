@@ -1,4 +1,5 @@
 let maxPoints = 10;
+let relayChart;
 let chart;
 let ws;
 
@@ -94,30 +95,45 @@ async function loadHistory(limit = maxPoints) {
 function initWebSocket() {
     ws = new WebSocket(`ws://${location.host}/ws`);
 
-    ws.onmessage = ({ data }) => {
-        const d = JSON.parse(data);
+    ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
 
-        document.getElementById("t1").textContent = d.t1;
-        document.getElementById("h1").textContent = d.h1;
-        document.getElementById("tp1").textContent = d.tp1;
+    document.getElementById("t1").textContent = data.t1;
+    document.getElementById("h1").textContent = data.h1;
+    document.getElementById("tp1").textContent = data.tp1;
 
-        document.getElementById("t2").textContent = d.t2;
-        document.getElementById("h2").textContent = d.h2;
-        document.getElementById("tp2").textContent = d.tp2;
+    document.getElementById("t2").textContent = data.t2;
+    document.getElementById("h2").textContent = data.h2;
+    document.getElementById("tp2").textContent = data.tp2;
 
-        document.getElementById("delta_tp").textContent = d.delta_tp;
-        document.getElementById("relay").textContent = d.relay;
+    document.getElementById("delta_tp").textContent = data.delta_tp;
+    document.getElementById("relay").textContent = data.relay;
 
-        const now = new Date().toLocaleTimeString("de-DE");
+    const now = new Date().toLocaleTimeString("de-DE");
 
-        chart.data.labels.push(now);
-        chart.data.datasets[0].data.push(d.t1);
-        chart.data.datasets[1].data.push(d.t2);
+    // main chart
+    chart.data.labels.push(now);
+    chart.data.datasets[0].data.push(data.t1);
+    chart.data.datasets[1].data.push(data.t2);
 
-        trimChartData();
-        chart.update();
-    };
-}
+    trimChartData();
+    chart.update();
+
+    // relay chart (safe guard)
+    if (relayChart) {
+        const relayValue = data.relay === "ON" ? 1 : 0;
+
+        relayChart.data.labels.push(now);
+        relayChart.data.datasets[0].data.push(relayValue);
+
+        while (relayChart.data.labels.length > maxPoints) {
+            relayChart.data.labels.shift();
+            relayChart.data.datasets[0].data.shift();
+        }
+
+        relayChart.update();
+    }
+};}
 
 /* -------------------- Measurements -------------------- */
 
@@ -133,6 +149,44 @@ async function startMeasurements() {
 
 function exportCSV() {
     window.location.href = "/measurements/export";
+}
+
+/* ------------------- Relay ------------------- */
+
+function initRelayChart() {
+    const ctx = document.getElementById("relayChart").getContext("2d");
+
+    relayChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "Relay (0/1)",
+                data: [],
+                borderColor: "blue",
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    top: 10,
+                    bottom: 10
+                }
+            },
+            scales: {
+                y: {
+                    min: -0.1,
+                    max: 1.1,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
 }
 
 /* -------------------- SQL -------------------- */
@@ -285,7 +339,7 @@ async function initPointLimit() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     initChart();
-    initWebSocket();
+    initRelayChart();
 
     const pointLimit = document.getElementById("pointLimit");
     maxPoints = parseInt(pointLimit.value, 10);
@@ -307,4 +361,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         initTheme(),
         initInterval()
     ]);
+    initWebSocket();
 });

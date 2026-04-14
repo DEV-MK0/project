@@ -6,11 +6,25 @@
   --muted: #6b7280;
   --border: #d1d5db;
 
+  /* primary */
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
 
+  /* success (green) */
   --success: #16a34a;
+  --success-hover: #15803d;
+
+  /* danger (red) */
   --danger: #dc2626;
+  --danger-hover: #b91c1c;
+
+  /* warning (optional but useful) */
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+
+  /* info (optional) */
+  --info: #0ea5e9;
+  --info-hover: #0284c7;
 }
 
 html.dark {
@@ -148,6 +162,39 @@ button {
 button:hover {
   background: var(--primary-hover);
 }
+
+button.danger {
+  background: var(--danger);
+}
+
+button.danger:hover {
+  background: var(--danger-hover);
+}
+
+button.success {
+  background: var(--success);
+}
+
+button.success:hover {
+  background: var(--success-hover);
+}
+
+button.warning {
+  background: var(--warning);
+}
+
+button.warning:hover {
+  background: var(--warning-hover);
+}
+
+button.info {
+  background: var(--info);
+}
+
+button.info:hover {
+  background: var(--info-hover);
+}
+
 
 input,
 textarea {
