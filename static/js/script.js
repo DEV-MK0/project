@@ -131,6 +131,10 @@ async function startMeasurements() {
     await api(`/save_measurements?count=${count}`);
 }
 
+function exportCSV() {
+    window.location.href = "/measurements/export";
+}
+
 /* -------------------- SQL -------------------- */
 
 async function runSQL(query) {

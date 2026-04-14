@@ -4,12 +4,15 @@ import sqlite3
 import time
 import threading
 import json
+import csv
 from math import log10
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from io import StringIO
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -292,6 +295,36 @@ def get_point_limit():
 def set_point_limit(limit: int):
     state_set("pointLimit", int(limit))
     return {"status": "ok"}
+
+@app.get("/measurements/export")
+def export_csv():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, t1, h1, t2, h2, tp1, tp2, delta_tp, relay, timestamp
+        FROM measurements
+        ORDER BY id ASC
+    """)
+
+    rows = cur.fetchall()
+    headers = [desc[0] for desc in cur.description]
+
+    conn.close()
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(headers)
+    writer.writerows(rows)
+
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=measurements.csv"}
+    )
 
 # -------------------- Init --------------------
 
