@@ -14,6 +14,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import StringIO
 
+START_TIME = time.time()
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -81,6 +83,7 @@ def measure_sensor():
 
 def compute_measurement():
     t1, h1, t2, h2 = measure_sensor()
+    runtime_seconds = int(time.time() - START_TIME)
 
     tp1 = taupunkt(t1, h1)
     tp2 = taupunkt(t2, h2)
@@ -100,7 +103,8 @@ def compute_measurement():
         "tp1": round(tp1, 1),
         "tp2": round(tp2, 1),
         "delta_tp": round(delta_tp, 1),
-        "relay": "ON" if relay_on else "OFF"
+        "relay": "ON" if relay_on else "OFF",
+        "runtime_seconds": runtime_seconds
     }
 
 

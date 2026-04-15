@@ -43,6 +43,17 @@ function createTable(columns, rows) {
     return table;
 }
 
+function formatDuration(sec) {
+    const safeSeconds = Number.isFinite(sec) ? Math.max(0, Math.floor(sec)) : 0;
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    return [hours, minutes, seconds]
+        .map(value => String(value).padStart(2, "0"))
+        .join(":");
+}
+
 /* -------------------- Chart -------------------- */
 
 function initChart() {
@@ -104,44 +115,47 @@ function initWebSocket() {
     ws = new WebSocket(`ws://${location.host}/ws`);
 
     ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        const runtime = formatDuration(data.runtime_seconds);
 
-    document.getElementById("t1").textContent = data.t1;
-    document.getElementById("h1").textContent = data.h1;
-    document.getElementById("tp1").textContent = data.tp1;
+        document.getElementById("t1").textContent = data.t1;
+        document.getElementById("h1").textContent = data.h1;
+        document.getElementById("tp1").textContent = data.tp1;
 
-    document.getElementById("t2").textContent = data.t2;
-    document.getElementById("h2").textContent = data.h2;
-    document.getElementById("tp2").textContent = data.tp2;
+        document.getElementById("t2").textContent = data.t2;
+        document.getElementById("h2").textContent = data.h2;
+        document.getElementById("tp2").textContent = data.tp2;
 
-    document.getElementById("delta_tp").textContent = data.delta_tp;
-    document.getElementById("relay").textContent = data.relay;
+        document.getElementById("delta_tp").textContent = data.delta_tp;
+        document.getElementById("relay").textContent = data.relay;
+        document.getElementById("runtime").textContent = runtime;
 
-    const now = new Date().toLocaleTimeString("de-DE");
+        const now = new Date().toLocaleTimeString("de-DE");
 
-    // main chart
-    chart.data.labels.push(now);
-    chart.data.datasets[0].data.push(data.t1);
-    chart.data.datasets[1].data.push(data.t2);
+        // main chart
+        chart.data.labels.push(now);
+        chart.data.datasets[0].data.push(data.t1);
+        chart.data.datasets[1].data.push(data.t2);
 
-    trimChartData();
-    chart.update();
+        trimChartData();
+        chart.update();
 
-    // relay chart (safe guard)
-    if (relayChart) {
-        const relayValue = data.relay === "ON" ? 1 : 0;
+        // relay chart (safe guard)
+        if (relayChart) {
+            const relayValue = data.relay === "ON" ? 1 : 0;
 
-        relayChart.data.labels.push(now);
-        relayChart.data.datasets[0].data.push(relayValue);
+            relayChart.data.labels.push(now);
+            relayChart.data.datasets[0].data.push(relayValue);
 
-        while (relayChart.data.labels.length > maxPoints) {
-            relayChart.data.labels.shift();
-            relayChart.data.datasets[0].data.shift();
+            while (relayChart.data.labels.length > maxPoints) {
+                relayChart.data.labels.shift();
+                relayChart.data.datasets[0].data.shift();
+            }
+
+            relayChart.update();
         }
-
-        relayChart.update();
-    }
-};}
+    };
+}
 
 /* -------------------- Measurements -------------------- */
 

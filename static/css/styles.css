@@ -262,8 +262,9 @@ tr:nth-child(even) td {
 /* -------------------- Status -------------------- */
 
 .status-grid {
-  display: flex;
-  gap: 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+  gap: 20px 40px;
   margin-top: 20px;
 }
 
