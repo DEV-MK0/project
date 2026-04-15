@@ -56,7 +56,9 @@ function updateRuntime() {
     if (!programStartTs) return;
     const now = Math.floor(Date.now() / 1000);
     const runtime = Math.max(0, now - programStartTs);
-    document.getElementById("runtime").textContent = formatDuration(runtime);
+
+    const relayText = document.getElementById("relay").dataset.relayState || "-";
+    document.getElementById("relay").textContent = `${relayText} (${formatDuration(runtime)})`;
 }
 
 /* -------------------- Chart -------------------- */
@@ -130,6 +132,8 @@ function initWebSocket() {
             runtimeTimer = setInterval(updateRuntime, 1000);
         }
 
+        const runtime = formatDuration(data.runtime_seconds);
+
         document.getElementById("t1").textContent = data.t1;
         document.getElementById("h1").textContent = data.h1;
         document.getElementById("tp1").textContent = data.tp1;
@@ -140,8 +144,9 @@ function initWebSocket() {
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
         document.getElementById("relay").dataset.relayState = data.relay;
-        document.getElementById("relay").textContent = data.relay;
+
         updateRuntime();
+        document.getElementById("runtime").textContent = runtime;
 
         const now = new Date().toLocaleTimeString("de-DE");
 
