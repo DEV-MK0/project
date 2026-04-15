@@ -56,6 +56,7 @@ function updateRuntime() {
     if (!programStartTs) return;
     const now = Math.floor(Date.now() / 1000);
     const runtime = Math.max(0, now - programStartTs);
+
     const relayText = document.getElementById("relay").dataset.relayState || "-";
     document.getElementById("relay").textContent = `${relayText} (${formatDuration(runtime)})`;
 }
@@ -143,6 +144,7 @@ function initWebSocket() {
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
         document.getElementById("relay").dataset.relayState = data.relay;
+
         updateRuntime();
         document.getElementById("runtime").textContent = runtime;
 
