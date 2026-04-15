@@ -149,22 +149,28 @@ h2 {
   align-items: center;
 }
 
-#chart-settings .button-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-#chart-settings .control-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
 #chart-settings select,
 #chart-settings input[type="number"] {
   width: 120px;
+}
+
+#chart-settings .settings-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: nowrap;      /* keeps it in one row on desktop */
+}
+
+#chart-settings .setting-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Optional: make interval input compact in the row */
+#chart-settings #interval {
+  width: 90px;
 }
 
 button {
@@ -365,4 +371,12 @@ tr:nth-child(even) td {
 
 .switch input:checked + .slider::before {
   transform: translateX(22px);
+}
+
+/* Mobile fallback */
+@media (max-width: 700px) {
+  #chart-settings .settings-row {
+    flex-wrap: wrap;      /* stack only on small screens */
+    gap: 12px;
+  }
 }
