@@ -76,6 +76,10 @@ function initChart() {
             ]
         },
         options: {
+            animation: {
+                duration: 300,
+                easing: "linear"
+            },
             responsive: true,
             maintainAspectRatio: false
         }
@@ -85,8 +89,12 @@ function initChart() {
 function trimChartData() {
     while (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
-        chart.data.datasets[0].data.shift();
-        chart.data.datasets[1].data.shift();
+        chart.data.datasets.forEach(ds => ds.data.shift());
+    }
+
+    while (relayChart.data.labels.length > maxPoints) {
+        relayChart.data.labels.shift();
+        relayChart.data.datasets[0].data.shift();
     }
 }
 
@@ -203,7 +211,7 @@ function initRelayChart() {
                 label: "Relay (0/1)",
                 data: [],
                 borderColor: "blue",
-                tension: 0.2
+                stepped: true
             }]
         },
         options: {
@@ -263,7 +271,7 @@ async function resetTable() {
     if (!confirm("Reset table and counter?")) return;
 
     await fetch("/measurements/reset", { method: "DELETE" });
-    await loadHistory(maxPoints);
+
 }
 
 /* -------------------- Logging -------------------- */
@@ -389,11 +397,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         maxPoints = value;
         await fetch(`/set_point_limit?limit=${value}`);
 
-        loadHistory(value);
+        // clear both charts
+        chart.data.labels = [];
+        chart.data.datasets.forEach(ds => ds.data = []);
+
+        relayChart.data.labels = [];
+        relayChart.data.datasets[0].data =  [];
+
+        chart.update();
+        relayChart.update();
     });
 
     await initPointLimit();
-    await loadHistory(maxPoints);
+
 
     await Promise.all([
         initLogging(),
