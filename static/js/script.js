@@ -2,6 +2,8 @@ let maxPoints = 10;
 let relayChart;
 let chart;
 let ws;
+let programStartTs = null;
+let runtimeTimer = null;
 
 /* -------------------- Helpers -------------------- */
 
@@ -43,15 +45,18 @@ function createTable(columns, rows) {
     return table;
 }
 
-function formatDuration(sec) {
-    const safeSeconds = Number.isFinite(sec) ? Math.max(0, Math.floor(sec)) : 0;
-    const hours = Math.floor(safeSeconds / 3600);
-    const minutes = Math.floor((safeSeconds % 3600) / 60);
-    const seconds = safeSeconds % 60;
+function formatDuration(totalSeconds) {
+    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const s = String(totalSeconds % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+}
 
-    return [hours, minutes, seconds]
-        .map(value => String(value).padStart(2, "0"))
-        .join(":");
+function updateRuntime() {
+    if (!programStartTs) return;
+    const now = Math.floor(Date.now() / 1000);
+    const runtime = Math.max(0, now - programStartTs);
+    document.getElementById("runtime").textContent = formatDuration(runtime);
 }
 
 /* -------------------- Chart -------------------- */
@@ -116,7 +121,14 @@ function initWebSocket() {
 
     ws.onmessage = function(event) {
         const data = JSON.parse(event.data);
-        const runtime = formatDuration(data.runtime_seconds);
+
+        if (data.program_start_ts) {
+            programStartTs = data.program_start_ts;
+        }
+
+        if (!runtimeTimer && programStartTs) {
+            runtimeTimer = setInterval(updateRuntime, 1000);
+        }
 
         document.getElementById("t1").textContent = data.t1;
         document.getElementById("h1").textContent = data.h1;
@@ -127,8 +139,9 @@ function initWebSocket() {
         document.getElementById("tp2").textContent = data.tp2;
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
+        document.getElementById("relay").dataset.relayState = data.relay;
         document.getElementById("relay").textContent = data.relay;
-        document.getElementById("runtime").textContent = runtime;
+        updateRuntime();
 
         const now = new Date().toLocaleTimeString("de-DE");
 
@@ -153,6 +166,13 @@ function initWebSocket() {
             }
 
             relayChart.update();
+        }
+    };
+
+    ws.onclose = function() {
+        if (runtimeTimer) {
+            clearInterval(runtimeTimer);
+            runtimeTimer = null;
         }
     };
 }

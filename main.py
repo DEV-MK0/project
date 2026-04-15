@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from io import StringIO
 
 START_TIME = time.time()
+PROGRAM_START_TS = int(START_TIME)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -104,7 +105,8 @@ def compute_measurement():
         "tp2": round(tp2, 1),
         "delta_tp": round(delta_tp, 1),
         "relay": "ON" if relay_on else "OFF",
-        "runtime_seconds": runtime_seconds
+        "runtime_seconds": runtime_seconds,
+        "program_start_ts": PROGRAM_START_TS
     }
 
 
