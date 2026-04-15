@@ -43,7 +43,8 @@ def load_state():
             "logging": False,
             "theme": "light",
             "interval": 2,
-            "pointLimit": 10
+            "pointLimit": 10,
+            "collaspedCards": {}
         }
 
 
@@ -331,6 +332,16 @@ def export_csv():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=measurements.csv"}
     )
+
+@app.get("/get_collapsed_cards")
+def get_collapsed_cards():
+    return {"collapsedCards": state_get("collapsedCards", {})}
+
+
+@app.post("/set_collapsed_cards")
+def set_collapsed_cards(data: dict = Body(...)):
+    state_set("collapsedCards", data)
+    return {"status": "ok"}
 
 # -------------------- Init --------------------
 

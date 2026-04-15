@@ -54,11 +54,11 @@ function formatDuration(totalSeconds) {
 
 function updateRuntime() {
     if (!programStartTs) return;
+
     const now = Math.floor(Date.now() / 1000);
     const runtime = Math.max(0, now - programStartTs);
 
-    const relayText = document.getElementById("relay").dataset.relayState || "-";
-    document.getElementById("relay").textContent = `${relayText} (${formatDuration(runtime)})`;
+    document.getElementById("runtime").textContent = formatDuration(runtime);
 }
 
 /* -------------------- Chart -------------------- */
@@ -132,8 +132,6 @@ function initWebSocket() {
             runtimeTimer = setInterval(updateRuntime, 1000);
         }
 
-        const runtime = formatDuration(data.runtime_seconds);
-
         document.getElementById("t1").textContent = data.t1;
         document.getElementById("h1").textContent = data.h1;
         document.getElementById("tp1").textContent = data.tp1;
@@ -144,9 +142,9 @@ function initWebSocket() {
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
         document.getElementById("relay").dataset.relayState = data.relay;
+        document.getElementById("relay").textContent = data.relay;
 
         updateRuntime();
-        document.getElementById("runtime").textContent = runtime;
 
         const now = new Date().toLocaleTimeString("de-DE");
 
@@ -409,7 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     await initPointLimit();
-
+    await initCollapsibleCards();
 
     await Promise.all([
         initLogging(),
@@ -418,3 +416,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     ]);
     initWebSocket();
 });
+
+async function initCollapsibleCards() {
+    const res = await api("/get_collapsed_cards");
+    const collapsedCards = res.collapsedCards || {};
+
+    document.querySelectorAll(".card").forEach(card => {
+        const id = card.id;
+        const btn = card.querySelector(".collapse-btn");
+
+        if (collapsedCards[id]) {
+            card.classList.add("collapsed");
+        }
+
+        btn.addEventListener("click", async () => {
+            card.classList.toggle("collapsed");
+
+            const updated = {};
+            document.querySelectorAll(".card").forEach(c => {
+                updated[c.id] = c.classList.contains("collapsed");
+            });
+
+            await fetch("/set_collapsed_cards", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(updated)
+            });
+        });
+    });
+}

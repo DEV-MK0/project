@@ -48,125 +48,166 @@
       <p>Live Temperature, Humidity und SQL Console</p>
     </header>
 
+    <!-- Live Chart -->
     <section class="card" id="live-chart">
-      <h2>Live Chart</h2>
-      <div class="chart-container">
-        <canvas id="liveChart"></canvas>
+      <div class="card-header">
+        <h2>Live Chart</h2>
+        <button class="collapse-btn">^</button>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="liveChart"></canvas>
+        </div>
       </div>
     </section>
 
+    <!-- Chart Settings -->
     <section class="card" id="chart-settings">
-      <h2>Chart Settings</h2>
+      <div class="card-header">
+        <h2>Chart Settings</h2>
+        <button class="collapse-btn">^</button>
+      </div>
+      <div class="card-body">
 
-      <div class="settings-row">
-        <div class="setting-item">
-          <label for="pointLimit">Limit:</label>
-          <select id="pointLimit">
-            <option value="10" selected>10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-          </select>
+        <div class="settings-row">
+          <div class="setting-item">
+            <label for="pointLimit">Limit:</label>
+            <select id="pointLimit">
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <span id="logLabel">Logging</span>
+            <label class="switch">
+              <input type="checkbox" id="logToggle" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <label for="interval">Interval:</label>
+            <input type="number" id="interval" min="2" onchange="setinterval()">
+          </div>
         </div>
 
-        <div class="setting-item">
-          <span id="logLabel">Logging</span>
-          <label class="switch">
-            <input type="checkbox" id="logToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="setting-item">
-          <label for="interval">Interval:</label>
-          <input type="number" id="interval" min="2" onchange="setinterval()">
-        </div>
       </div>
     </section>
 
+    <!-- Status -->
     <section class="card" id="status">
-      <h2>Measurement Status</h2>
+      <div class="card-header">
+        <h2>Measurement Status</h2>
+        <button class="collapse-btn">^</button>
+      </div>
+      <div class="card-body">
 
-      <table>
-        <thead>
-          <tr>
-            <th>Sensor</th>
-            <th>Temp (°C)</th>
-            <th>Humidity (%)</th>
-            <th>Dew Point (°C)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Inside</td>
-            <td id="t1">-</td>
-            <td id="h1">-</td>
-            <td id="tp1">-</td>
-          </tr>
-          <tr>
-            <td>Outside</td>
-            <td id="t2">-</td>
-            <td id="h2">-</td>
-            <td id="tp2">-</td>
-          </tr>
-        </tbody>
-      </table>
+        <table>
+          <thead>
+            <tr>
+              <th>Sensor</th>
+              <th>Temp (°C)</th>
+              <th>Humidity (%)</th>
+              <th>Dew Point (°C)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Inside</td>
+              <td id="t1">-</td>
+              <td id="h1">-</td>
+              <td id="tp1">-</td>
+            </tr>
+            <tr>
+              <td>Outside</td>
+              <td id="t2">-</td>
+              <td id="h2">-</td>
+              <td id="tp2">-</td>
+            </tr>
+          </tbody>
+        </table>
 
-      <div class="status-grid">
-        <div>
-          <span>Delta Taupunkt</span>
-          <strong id="delta_tp">- °C</strong>
+        <div class="status-grid">
+          <div>
+            <span>Delta Taupunkt</span>
+            <strong id="delta_tp">- °C</strong>
+          </div>
+          <div>
+            <span>Relay</span>
+            <strong id="relay">-</strong>
+          </div>
+          <div>
+            <span>Runtime</span>
+            <strong id="runtime">00:00:00</strong>
+          </div>
         </div>
-        <div>
-          <span>Relay</span>
-          <strong id="relay">-</strong>
-        </div>
-        <div>
-          <span>Runtime</span>
-          <strong id="runtime">00:00:00</strong>
-        </div>
+
       </div>
     </section>
 
+    <!-- Relay Chart -->
     <section class="card" id="relay-chart">
-      <h2>Relay Status</h2>
-
-      <div class="chart-container">
-        <canvas id="relayChart"></canvas>
+      <div class="card-header">
+        <h2>Relay Status</h2>
+        <button class="collapse-btn">^</button>
       </div>
-    </section>
+      <div class="card-body">
 
-    <section class="card" id="control">
-      <h2>Measurement Control</h2>
-
-      <div class="control-row">
-        <input type="number" id="measure_count" value="5" min="1">
-        <button onclick="startMeasurements()">Start Measurements</button>
-
-        <div class="progress-circle">
-          <svg width="36" height="36">
-            <circle class="bg" cx="18" cy="18" r="16"></circle>
-            <circle class="progress" cx="18" cy="18" r="16"></circle>
-          </svg>
+        <div class="chart-container">
+          <canvas id="relayChart"></canvas>
         </div>
 
-        <span id="measureStatus" class="measure-status">✓ Done</span>
       </div>
     </section>
 
-    <section class="card" id="sql">
-      <h2>SQL Console</h2>
-
-      <textarea id="sqlInput">SELECT * FROM measurements;</textarea>
-
-      <div class="button-group">
-        <button onclick="runSQL()">Run SQL</button>
-        <button onclick="selectTable()">Select Table</button>
-        <button onclick="resetTable()" class="danger">Reset Table</button>
-        <button onclick="exportCSV()" class="success">Export CSV</button>
+    <!-- Control -->
+    <section class="card" id="control">
+      <div class="card-header">
+        <h2>Measurement Control</h2>
+        <button class="collapse-btn">^</button>
       </div>
+      <div class="card-body">
 
-      <div id="sqlTableContainer"></div>
-      <pre id="sqlResult"></pre>
+        <div class="control-row">
+          <input type="number" id="measure_count" value="5" min="1">
+          <button onclick="startMeasurements()">Start Measurements</button>
+
+          <div class="progress-circle">
+            <svg width="36" height="36">
+              <circle class="bg" cx="18" cy="18" r="16"></circle>
+              <circle class="progress" cx="18" cy="18" r="16"></circle>
+            </svg>
+          </div>
+
+          <span id="measureStatus" class="measure-status">✓ Done</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SQL -->
+    <section class="card" id="sql">
+      <div class="card-header">
+        <h2>SQL Console</h2>
+        <button class="collapse-btn">^</button>
+      </div>
+      <div class="card-body">
+
+        <textarea id="sqlInput">SELECT * FROM measurements;</textarea>
+
+        <div class="button-group">
+          <button onclick="runSQLFromInput()">Run SQL</button>
+          <button onclick="selectTable()">Select Table</button>
+          <button onclick="resetTable()" class="danger">Reset Table</button>
+          <button onclick="exportCSV()" class="success">Export CSV</button>
+        </div>
+
+        <div id="sqlTableContainer"></div>
+        <pre id="sqlResult"></pre>
+
+      </div>
     </section>
 
   </div>
