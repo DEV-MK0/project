@@ -5,6 +5,7 @@ let ws;
 let programStartTs = null;
 let runtimeTimer = null;
 let storageChart;
+let measurementCounter = 0;
 
 /* -------------------- Helpers -------------------- */
 
@@ -220,6 +221,14 @@ function initWebSocket() {
 
     ws.onmessage = function(event) {
         const data = JSON.parse(event.data);
+
+        measurementCounter++;
+
+        // every 50 measurements → refresh storage
+        if (measurementCounter >= 25) {
+            measurementCounter = 0;
+            refreshStorageStatus();
+        }
 
         if (data.program_start_ts) {
             programStartTs = data.program_start_ts;

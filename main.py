@@ -310,14 +310,17 @@ async def save_measurements_endpoint(count: int = Query(..., gt=0)):
         await asyncio.sleep(interval)
     return {"status": "ok", "saved": count}
 
-
 @app.delete("/measurements/reset")
 def reset_measurements():
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute("DELETE FROM measurements")
         conn.execute("DELETE FROM sqlite_sequence WHERE name='measurements'")
-    return {"status": "reset"}
+        conn.commit()
 
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("VACUUM")
+
+    return {"status": "reset"}
 
 @app.get("/measurements/history")
 def measurement_history(limit: int = 10):
