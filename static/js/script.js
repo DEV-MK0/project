@@ -4,6 +4,7 @@ let chart;
 let ws;
 let programStartTs = null;
 let runtimeTimer = null;
+let storageChart;
 
 /* -------------------- Helpers -------------------- */
 
@@ -54,11 +55,107 @@ function formatDuration(totalSeconds) {
 
 function updateRuntime() {
     if (!programStartTs) return;
-
     const now = Math.floor(Date.now() / 1000);
     const runtime = Math.max(0, now - programStartTs);
 
     document.getElementById("runtime").textContent = formatDuration(runtime);
+}
+
+/* ------------------- Storage ------------------- */
+
+function formatBytes(bytes) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let index = 0;
+
+    while (value >= 1024 && index < units.length - 1) {
+        value /= 1024;
+        index += 1;
+    }
+
+    const decimals = value >= 100 || index === 0 ? 0 : 2;
+    return `${value.toFixed(decimals)} ${units[index]}`;
+}
+
+function initStorageChart() {
+    const ctx = document.getElementById("storageChart").getContext("2d");
+
+    storageChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: ["Used", "Free"],
+            datasets: [{
+                data: [0, 0],
+                backgroundColor: ["#dc2626", "#9ca3af"],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw || 0;
+                            return `${context.label}: ${formatBytes(value)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function refreshStorageStatus() {
+    const data = await api("/storage_status");
+
+    const sizeBytes = Math.max(data.dbSizeBytes ?? 0, 0);
+    const limitBytes = Math.max(data.dbLimitBytes ?? 0, 0);
+    const usedBytes = Math.min(sizeBytes, limitBytes);
+    const freeBytes = Math.max(limitBytes - usedBytes, 0);
+
+    const usedPercent = limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0;
+
+    document.getElementById("dbSizeText").textContent = formatBytes(sizeBytes);
+    document.getElementById("dbLimitText").textContent = formatBytes(limitBytes);
+    document.getElementById("dbUsageText").textContent = `${usedPercent.toFixed(1)}%`;
+    document.getElementById("dbLimitValue").value = data.dbLimitValue;
+    document.getElementById("dbLimitUnit").value = data.dbLimitUnit;
+
+    const notice = document.getElementById("storageLimitNotice");
+    notice.textContent = data.loggingStoppedByLimit
+        ? "Logging stopped because the database reached the configured limit."
+        : "Logging stops automatically when the configured limit is reached.";
+
+    if (storageChart) {
+        storageChart.data.datasets[0].data = [usedBytes, freeBytes];
+        storageChart.update();
+    }
+
+    if (data.loggingStoppedByLimit) {
+        const toggle = document.getElementById("logToggle");
+        if (toggle) {
+            toggle.checked = false;
+        }
+    }
+}
+
+async function saveDbLimit() {
+    const value = parseFloat(document.getElementById("dbLimitValue").value);
+    const unit = document.getElementById("dbLimitUnit").value;
+
+    if (!Number.isFinite(value) || value <= 0) {
+        alert("Please enter a valid database limit.");
+        return;
+    }
+
+    await api(`/set_db_limit?value=${encodeURIComponent(value)}&unit=${encodeURIComponent(unit)}`);
+    await refreshStorageStatus();
+    await initLogging();
 }
 
 /* -------------------- Chart -------------------- */
@@ -190,6 +287,8 @@ async function startMeasurements() {
 
     startProgress(duration);
     await api(`/save_measurements?count=${count}`);
+    await refreshStorageStatus();
+    await initLogging();
 }
 
 function exportCSV() {
@@ -269,7 +368,7 @@ async function resetTable() {
     if (!confirm("Reset table and counter?")) return;
 
     await fetch("/measurements/reset", { method: "DELETE" });
-
+    await refreshStorageStatus();
 }
 
 /* -------------------- Logging -------------------- */
@@ -282,18 +381,22 @@ async function initLogging() {
 
     toggle.checked = data.logging;
 
-    function update() {
-        const enabled = toggle.checked;
-
+    function updateLabel(enabled) {
         label.textContent = enabled
             ? "Logging enabled"
             : "Logging disabled";
-
-        fetch(`/set_logging?enabled=${enabled}`);
     }
 
-    toggle.addEventListener("change", update);
-    update();
+    toggle.onchange = async function() {
+        const enabled = toggle.checked;
+        const result = await api(`/set_logging?enabled=${enabled}`);
+
+        toggle.checked = !!result.logging;
+        updateLabel(toggle.checked);
+        await refreshStorageStatus();
+    };
+
+    updateLabel(toggle.checked);
 }
 
 /* -------------------- Theme -------------------- */
@@ -385,6 +488,7 @@ async function initPointLimit() {
 document.addEventListener("DOMContentLoaded", async () => {
     initChart();
     initRelayChart();
+    initStorageChart();
 
     const pointLimit = document.getElementById("pointLimit");
     maxPoints = parseInt(pointLimit.value, 10);
@@ -412,7 +516,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await Promise.all([
         initLogging(),
         initTheme(),
-        initInterval()
+        initInterval(),
+        refreshStorageStatus()
     ]);
     initWebSocket();
 });
@@ -424,6 +529,8 @@ async function initCollapsibleCards() {
     document.querySelectorAll(".card").forEach(card => {
         const id = card.id;
         const btn = card.querySelector(".collapse-btn");
+
+        if (!btn) return;
 
         if (collapsedCards[id]) {
             card.classList.add("collapsed");

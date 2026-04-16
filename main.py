@@ -5,6 +5,7 @@ import time
 import threading
 import json
 import csv
+import os
 from math import log10
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
@@ -44,7 +45,9 @@ def load_state():
             "theme": "light",
             "interval": 2,
             "pointLimit": 10,
-            "collaspedCards": {}
+            "collaspedCards": {},
+            "dbLimitValue": 20,
+            "dbLimitUnit": "KB"
         }
 
 
@@ -130,21 +133,56 @@ def init_db():
             )
         """)
 
-
 def save_measurement(data):
+    if enforce_db_limit():
+        return False
+
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute("""
             INSERT INTO measurements (t1,h1,t2,h2,tp1,tp2,delta_tp,relay)
             VALUES (?,?,?,?,?,?,?,?)
         """, (
-            data["t1"], data["h1"], data["h2"], data["t2"],
+            data["t1"], data["h1"], data["t2"], data["h2"],
             data["tp1"], data["tp2"], data["delta_tp"], data["relay"]
         ))
+
+    enforce_db_limit()
+    return True
 
 
 def save_measurement_once():
     data = compute_measurement()
-    save_measurement(data)
+    return save_measurement(data)
+
+def get_db_size_bytes():
+    try:
+        return os.path.getsize(DB_FILE)
+    except OSError:
+        return 0
+
+
+def unit_to_bytes(value, unit):
+    unit = (unit or "KB").upper()
+    factors = {
+        "KB": 1024,
+        "MB": 1024 ** 2,
+        "GB": 1024 ** 3,
+        "TB": 1024 ** 4
+    }
+    return int(float(value) * factors.get(unit, 1024 ** 2))
+
+
+def get_db_limit_bytes():
+    value = state_get("dbLimitValue", 20)
+    unit = state_get("dbLimitUnit", "KB")
+    return unit_to_bytes(value, unit)
+
+
+def enforce_db_limit():
+    if get_db_size_bytes() >= get_db_limit_bytes():
+        state_set("logging", False)
+        return True
+    return False
 
 
 # -------------------- Logging Thread --------------------
@@ -152,7 +190,9 @@ def save_measurement_once():
 def logging_loop():
     while state_get("logging"):
         try:
-            save_measurement_once()
+            stored = save_measurement_once()
+            if not stored:
+                break
             time.sleep(interval)
         except Exception as e:
             print("Logging error:", e)
@@ -219,6 +259,9 @@ async def start_measurements(count: int = Body(..., embed=True)):
 def set_logging(enabled: bool):
     global logging_thread
 
+    if enabled and enforce_db_limit():
+        return state
+
     state_set("logging", enabled)
 
     if enabled:
@@ -228,6 +271,37 @@ def set_logging(enabled: bool):
 
     return state
 
+@app.get("/storage_status")
+def get_storage_status():
+    size_bytes = get_db_size_bytes()
+    limit_bytes = get_db_limit_bytes()
+    used_percent = 0 if limit_bytes <= 0 else min((size_bytes / limit_bytes) * 100, 100)
+
+    return {
+        "dbSizeBytes": size_bytes,
+        "dbLimitBytes": limit_bytes,
+        "dbLimitValue": state_get("dbLimitValue", 20),
+        "dbLimitUnit": state_get("dbLimitUnit", "KB"),
+        "usedPercent": round(used_percent, 1),
+        "loggingStoppedByLimit": size_bytes >= limit_bytes
+    }
+
+
+@app.get("/set_db_limit")
+def set_db_limit(value: float, unit: str):
+    unit = unit.upper()
+
+    if unit not in ["KB", "MB", "GB", "TB"]:
+        return {"error": "invalid unit"}
+
+    if value <= 0:
+        return {"error": "value must be greater than 0"}
+
+    state_set("dbLimitValue", value)
+    state_set("dbLimitUnit", unit)
+    enforce_db_limit()
+
+    return get_storage_status()
 
 @app.get("/save_measurements")
 async def save_measurements_endpoint(count: int = Query(..., gt=0)):

@@ -28,6 +28,7 @@
       <a href="#status">Measurement Status</a>
       <a href="#control">Measurement Control</a>
       <a href="#sql">SQL Console</a>
+      <a href="#storage-management">Storage Management</a>
     </div>
 
     <div class="nav-right">
@@ -210,6 +211,51 @@
       </div>
     </section>
 
+    <section class="card" id="storage-management">
+  <div class="card-header">
+    <h2>Storage Management</h2>
+    <button class="collapse-btn">^</button>
+  </div>
+
+  <div class="card-body">
+    <div class="storage-grid">
+      <div class="storage-chart-wrap">
+        <canvas id="storageChart"></canvas>
+      </div>
+
+      <div class="storage-info">
+        <div class="storage-stat">
+          <span>Database Size</span>
+          <strong id="dbSizeText">-</strong>
+        </div>
+
+        <div class="storage-stat">
+          <span>Configured Limit</span>
+          <strong id="dbLimitText">-</strong>
+        </div>
+
+        <div class="storage-stat">
+          <span>Usage</span>
+          <strong id="dbUsageText">-</strong>
+        </div>
+
+        <div class="storage-limit-row">
+          <input type="number" id="dbLimitValue" min="20" step="0.1" value="100">
+          <select id="dbLimitUnit">
+            <option value="KB">KB</option>
+            <option value="MB">MB</option>
+            <option value="GB">GB</option>
+            <option value="TB">TB</option>
+          </select>
+          <button onclick="saveDbLimit()" class="danger">Save Limit</button>
+          <button onclick="refreshStorageStatus()">Refresh</button>
+        </div>
+
+        <p id="storageLimitNotice" class="storage-limit-notice"></p>
+      </div>
+    </div>
+  </div>
+</section>
   </div>
 </body>
 </html>
