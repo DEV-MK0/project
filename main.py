@@ -290,21 +290,29 @@ def get_disk_info():
 async def get_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    message_count = 0
 
     try:
         while True:
             data = compute_measurement()
+            message_count += 1
+
+            if message_count == 1 or message_count % 5 == 0:
+                data["systemOverview"] = {
+                    "cpuPercent": get_cpu_percent(),
+                    "memory": get_memory_info(),
+                    "disk": get_disk_info()
+                }
+
             await websocket.send_json(data)
             await asyncio.sleep(interval)
     except WebSocketDisconnect:
         pass
     except Exception as e:
         print(f"WebSocket error: {e}")
-
 
 class SQLCommand(BaseModel):
     query: str
@@ -522,6 +530,7 @@ def get_system_overview():
 
 init_db()
 state = load_state()
+get_cpu_percent()
 
 interval = state_get("interval", 2)
 

@@ -376,6 +376,10 @@ function initWebSocket() {
     ws.onmessage = function(event) {
         const data = JSON.parse(event.data);
 
+        if (data.systemOverview) {
+            updateOverviewFromWs(data.systemOverview);
+        }
+
         measurementCounter++;
 
         // every 50 measurements → refresh storage
@@ -438,6 +442,41 @@ function initWebSocket() {
             runtimeTimer = null;
         }
     };
+}
+
+function updateOverviewFromWs(system) {
+    const cpuPercent = Math.max(0, Math.min(system.cpuPercent ?? 0, 100));
+    const ramPercent = Math.max(0, Math.min(system.memory?.percent ?? 0, 100));
+    const ramUsed = system.memory?.used ?? 0;
+    const ramTotal = system.memory?.total ?? 0;
+
+    const diskPercent = Math.max(0, Math.min(system.disk?.percent ?? 0, 100));
+    const diskUsed = system.disk?.used ?? 0;
+    const diskTotal = system.disk?.total ?? 0;
+
+    if (cpuChart) {
+        cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
+        cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
+        cpuChart.update();
+    }
+
+    if (ramChart) {
+        ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
+        ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
+        ramChart.update();
+    }
+
+    document.getElementById("cpuPercentText").textContent = `${cpuPercent.toFixed(1)}%`;
+    document.getElementById("cpuUnitsText").textContent = `Used: ${cpuPercent.toFixed(1)}%`;
+
+    document.getElementById("ramPercentText").textContent = `${ramPercent.toFixed(1)}%`;
+    document.getElementById("ramUnitsText").textContent =
+        `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
+
+    document.getElementById("storagePercentText").textContent = `${diskPercent.toFixed(1)}%`;
+    document.getElementById("storageUsedText").textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
+    document.getElementById("storageTotalText").textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
+    document.getElementById("storageBarFill").style.width = `${diskPercent}%`;
 }
 
 /* -------------------- Measurements -------------------- */
@@ -693,8 +732,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         refreshStorageStatus(),
         refreshOverview()
     ]);
-
-    setInterval(refreshOverview, 3000);
 
     initWebSocket();
 });
