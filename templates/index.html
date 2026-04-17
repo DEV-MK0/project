@@ -23,6 +23,7 @@
 
   <nav class="top-nav">
     <div class="nav-left">
+      <a href="#overview">Overview</a>
       <a href="#live-chart">Live Chart</a>
       <a href="#chart-settings">Chart Settings</a>
       <a href="#status">Measurement Status</a>
@@ -48,6 +49,64 @@
       <h1>Temperature Monitor</h1>
       <p>Live Temperature, Humidity und SQL Console</p>
     </header>
+
+    <!-- Overview -->
+    <section class="card" id="overview">
+      <div class="card-header">
+        <h2>Overview</h2>
+        <button class="collapse-btn">^</button>
+      </div>
+      <div class="card-body">
+        <div class="overview-grid">
+          <div class="overview-clock">
+            <div id="overviewTime" class="overview-time">00:00</div>
+            <div id="overviewDate" class="overview-date">-</div>
+          </div>
+
+          <div class="overview-chart-card">
+            <div class="overview-chart-header">
+              <span>CPU</span>
+              <strong id="cpuPercentText">0%</strong>
+            </div>
+            <div class="overview-chart-wrap">
+              <canvas id="cpuChart"></canvas>
+            </div>
+            <div class="overview-chart-meta">
+              <span id="cpuUnitsText">Used: 0%</span>
+            </div>
+          </div>
+
+          <div class="overview-chart-card">
+            <div class="overview-chart-header">
+              <span>RAM</span>
+              <strong id="ramPercentText">0%</strong>
+            </div>
+            <div class="overview-chart-wrap">
+              <canvas id="ramChart"></canvas>
+            </div>
+            <div class="overview-chart-meta">
+              <span id="ramUnitsText">0 GB / 0 GB</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-storage-block">
+          <div class="overview-storage-header">
+            <span>System Storage</span>
+            <strong id="storagePercentText">0%</strong>
+          </div>
+
+          <div class="overview-storage-bar">
+            <div id="storageBarFill" class="overview-storage-bar-fill"></div>
+          </div>
+
+          <div class="overview-storage-meta">
+            <span id="storageUsedText">Used: 0 GB</span>
+            <span id="storageTotalText">Total: 0 GB</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Live Chart -->
     <section class="card" id="live-chart">

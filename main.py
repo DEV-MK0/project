@@ -6,6 +6,8 @@ import threading
 import json
 import csv
 import os
+import shutil
+import socket
 from math import log10
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
@@ -197,6 +199,90 @@ def logging_loop():
         except Exception as e:
             print("Logging error:", e)
 
+# -------------------- System Overview --------------------
+
+_prev_cpu_total = None
+_prev_cpu_idle = None
+
+
+def get_cpu_percent():
+    global _prev_cpu_total, _prev_cpu_idle
+
+    try:
+        with open("/proc/stat", "r") as f:
+            parts = f.readline().split()
+
+        values = list(map(int, parts[1:]))
+        idle = values[3] + values[4]
+        total = sum(values)
+
+        if _prev_cpu_total is None or _prev_cpu_idle is None:
+            _prev_cpu_total = total
+            _prev_cpu_idle = idle
+            return 0.0
+
+        total_diff = total - _prev_cpu_total
+        idle_diff = idle - _prev_cpu_idle
+
+        _prev_cpu_total = total
+        _prev_cpu_idle = idle
+
+        if total_diff <= 0:
+            return 0.0
+
+        usage = 100.0 * (1.0 - (idle_diff / total_diff))
+        return round(max(0.0, min(usage, 100.0)), 1)
+
+    except Exception:
+        return 0.0
+
+
+def get_memory_info():
+    try:
+        mem = {}
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                key, value = line.split(":", 1)
+                mem[key] = int(value.strip().split()[0]) * 1024
+
+        total = mem.get("MemTotal", 0)
+        available = mem.get("MemAvailable", 0)
+        used = max(total - available, 0)
+        percent = round((used / total) * 100, 1) if total > 0 else 0.0
+
+        return {
+            "total": total,
+            "used": used,
+            "available": available,
+            "percent": percent
+        }
+    except Exception:
+        return {
+            "total": 0,
+            "used": 0,
+            "available": 0,
+            "percent": 0.0
+        }
+
+
+def get_disk_info():
+    try:
+        usage = shutil.disk_usage("/")
+        percent = round((usage.used / usage.total) * 100, 1) if usage.total > 0 else 0.0
+
+        return {
+            "total": usage.total,
+            "used": usage.used,
+            "free": usage.free,
+            "percent": percent
+        }
+    except Exception:
+        return {
+            "total": 0,
+            "used": 0,
+            "free": 0,
+            "percent": 0.0
+        }
 
 # -------------------- API --------------------
 
@@ -419,6 +505,18 @@ def get_collapsed_cards():
 def set_collapsed_cards(data: dict = Body(...)):
     state_set("collapsedCards", data)
     return {"status": "ok"}
+
+@app.get("/system_overview")
+def get_system_overview():
+    memory = get_memory_info()
+    disk = get_disk_info()
+
+    return {
+        "hostname": socket.gethostname(),
+        "cpuPercent": get_cpu_percent(),
+        "memory": memory,
+        "disk": disk
+    }
 
 # -------------------- Init --------------------
 

@@ -6,6 +6,9 @@ let programStartTs = null;
 let runtimeTimer = null;
 let storageChart;
 let measurementCounter = 0;
+let cpuChart;
+let ramChart;
+let clockTimer = null;
 
 /* -------------------- Helpers -------------------- */
 
@@ -60,6 +63,157 @@ function updateRuntime() {
     const runtime = Math.max(0, now - programStartTs);
 
     document.getElementById("runtime").textContent = formatDuration(runtime);
+}
+
+function formatDate24() {
+    const now = new Date();
+
+    const time = now.toLocaleTimeString("de-DE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+    });
+
+    const date = now.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    });
+
+    return { time, date };
+}
+
+function updateOverviewClock() {
+    const { time, date } = formatDate24();
+
+    const timeEl = document.getElementById("overviewTime");
+    const dateEl = document.getElementById("overviewDate");
+
+    if (timeEl) timeEl.textContent = time;
+    if (dateEl) dateEl.textContent = date;
+}
+
+function formatBytesToBestUnit(bytes) {
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let index = 0;
+
+    while (value >= 1024 && index < units.length - 1) {
+        value /= 1024;
+        index += 1;
+    }
+
+    const decimals = value >= 100 || index === 0 ? 0 : 2;
+    return `${value.toFixed(decimals)} ${units[index]}`;
+}
+
+const doughnutCenterTextPlugin = {
+    id: "doughnutCenterTextPlugin",
+    afterDraw(chart) {
+        const text = chart?.options?.plugins?.centerText?.text;
+        if (!text) return;
+
+        const { ctx, chartArea } = chart;
+        if (!chartArea) return;
+
+        const x = (chartArea.left + chartArea.right) / 2;
+        const y = (chartArea.top + chartArea.bottom) / 2;
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#111";
+        ctx.font = "bold 22px Arial";
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+};
+
+function createOverviewDoughnut(canvasId, initialText = "0%") {
+    const ctx = document.getElementById(canvasId).getContext("2d");
+
+    return new Chart(ctx, {
+        type: "doughnut",
+        data: {
+            labels: ["Used", "Free"],
+            datasets: [{
+                data: [0, 100],
+                backgroundColor: ["#22c55e", "#cbd5e1"],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "75%",
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true
+                },
+                centerText: {
+                    text: initialText
+                }
+            }
+        },
+        plugins: [doughnutCenterTextPlugin]
+    });
+}
+
+function initOverviewCharts() {
+    cpuChart = createOverviewDoughnut("cpuChart");
+    ramChart = createOverviewDoughnut("ramChart");
+}
+
+async function refreshOverview() {
+    const data = await api("/system_overview");
+
+    const cpuPercent = Math.max(0, Math.min(data.cpuPercent ?? 0, 100));
+    const ramPercent = Math.max(0, Math.min(data.memory?.percent ?? 0, 100));
+    const ramUsed = data.memory?.used ?? 0;
+    const ramTotal = data.memory?.total ?? 0;
+
+    const diskPercent = Math.max(0, Math.min(data.disk?.percent ?? 0, 100));
+    const diskUsed = data.disk?.used ?? 0;
+    const diskTotal = data.disk?.total ?? 0;
+
+    if (cpuChart) {
+        cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
+        cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
+        cpuChart.update();
+    }
+
+    if (ramChart) {
+        ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
+        ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
+        ramChart.update();
+    }
+
+    const cpuPercentText = document.getElementById("cpuPercentText");
+    const cpuUnitsText = document.getElementById("cpuUnitsText");
+    const ramPercentText = document.getElementById("ramPercentText");
+    const ramUnitsText = document.getElementById("ramUnitsText");
+    const storagePercentText = document.getElementById("storagePercentText");
+    const storageUsedText = document.getElementById("storageUsedText");
+    const storageTotalText = document.getElementById("storageTotalText");
+    const storageBarFill = document.getElementById("storageBarFill");
+
+    if (cpuPercentText) cpuPercentText.textContent = `${cpuPercent.toFixed(1)}%`;
+    if (cpuUnitsText) cpuUnitsText.textContent = `Used: ${cpuPercent.toFixed(1)}%`;
+
+    if (ramPercentText) ramPercentText.textContent = `${ramPercent.toFixed(1)}%`;
+    if (ramUnitsText) ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
+
+    if (storagePercentText) storagePercentText.textContent = `${diskPercent.toFixed(1)}%`;
+    if (storageUsedText) storageUsedText.textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
+    if (storageTotalText) storageTotalText.textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
+
+    if (storageBarFill) {
+        storageBarFill.style.width = `${diskPercent}%`;
+    }
 }
 
 /* ------------------- Storage ------------------- */
@@ -430,11 +584,16 @@ async function initTheme() {
     // 2. apply theme
     applyTheme(theme);
 
+    if (cpuChart) cpuChart.update();
+    if (ramChart) ramChart.update();
+
     // 3. bind toggle
     toggle.addEventListener("change", async () => {
         const newTheme = toggle.checked ? "dark" : "light";
 
         applyTheme(newTheme); // immediate UI update
+        if (cpuChart) cpuChart.update();
+        if (ramChart) ramChart.update();
         await fetch(`/set_theme?theme=${newTheme}`);
     });
 }
@@ -498,6 +657,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     initChart();
     initRelayChart();
     initStorageChart();
+    initOverviewCharts();
+
+    updateOverviewClock();
+    if (!clockTimer) {
+        clockTimer = setInterval(updateOverviewClock, 1000);
+    }
 
     const pointLimit = document.getElementById("pointLimit");
     maxPoints = parseInt(pointLimit.value, 10);
@@ -508,12 +673,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         maxPoints = value;
         await fetch(`/set_point_limit?limit=${value}`);
 
-        // clear both charts
         chart.data.labels = [];
         chart.data.datasets.forEach(ds => ds.data = []);
 
         relayChart.data.labels = [];
-        relayChart.data.datasets[0].data =  [];
+        relayChart.data.datasets[0].data = [];
 
         chart.update();
         relayChart.update();
@@ -526,8 +690,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         initLogging(),
         initTheme(),
         initInterval(),
-        refreshStorageStatus()
+        refreshStorageStatus(),
+        refreshOverview()
     ]);
+
+    setInterval(refreshOverview, 3000);
+
     initWebSocket();
 });
 
