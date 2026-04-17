@@ -704,3 +704,47 @@ body.ui-loading .card-body,
 body.ui-loading .collapse-btn {
   transition: none !important;
 }
+
+body.edit-mode #cardsContainer .card {
+  cursor: grab;
+  outline: 2px dashed var(--border);
+  outline-offset: 4px;
+}
+
+body.edit-mode #cardsContainer .card:hover {
+  outline-color: var(--primary);
+}
+
+body.edit-mode #cardsContainer .card.dragging {
+  cursor: grabbing;
+  opacity: 0.75;
+}
+
+body.edit-mode #cardsContainer .card .card-body {
+  pointer-events: none;
+}
+
+body.edit-mode #cardsContainer .card .collapse-btn {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+body.edit-mode #cardsContainer .card.dragging {
+  cursor: grabbing;
+  opacity: 0.75;
+  transform: scale(0.985);
+}
+
+body.edit-mode #cardsContainer .card-header::after {
+  content: "Drag to move";
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+body.edit-mode #cardsContainer .card-header {
+  background: color-mix(in srgb, var(--surface-alt) 85%, var(--primary) 15%);
+  border-radius: 10px;
+  padding: 8px 10px;
+}

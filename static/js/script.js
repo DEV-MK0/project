@@ -11,6 +11,8 @@ let ramChart;
 let clockTimer = null;
 let editMode = false;
 let draggedCard = null;
+let autoScrollSpeed = 0;
+let autoScrollFrame = null;
 
 /* -------------------- Helpers -------------------- */
 
@@ -149,6 +151,7 @@ function initDragAndDrop() {
         card.addEventListener("dragend", async () => {
             card.classList.remove("dragging");
             clearDragMarkers();
+            stopAutoScroll();
             draggedCard = null;
             buildNavbar();
             await saveCardOrder();
@@ -158,6 +161,8 @@ function initDragAndDrop() {
             if (!editMode || !draggedCard || draggedCard === card) return;
 
             event.preventDefault();
+
+            handleAutoScroll(event.clientY);
 
             const rect = card.getBoundingClientRect();
             const middle = rect.top + rect.height / 2;
@@ -190,8 +195,53 @@ function initDragAndDrop() {
             }
 
             clearDragMarkers();
+            stopAutoScroll();
         });
     });
+
+    document.addEventListener("drop", stopAutoScroll);
+    document.addEventListener("dragend", stopAutoScroll);
+}
+
+function startAutoScroll() {
+    if (autoScrollFrame) return;
+
+    function step() {
+        if (autoScrollSpeed !== 0) {
+            window.scrollBy(0, autoScrollSpeed);
+        }
+        autoScrollFrame = requestAnimationFrame(step);
+    }
+
+    autoScrollFrame = requestAnimationFrame(step);
+}
+
+function stopAutoScroll() {
+    autoScrollSpeed = 0;
+
+    if (autoScrollFrame) {
+        cancelAnimationFrame(autoScrollFrame);
+        autoScrollFrame = null;
+    }
+}
+
+function handleAutoScroll(clientY) {
+    const edgeThreshold = 260;
+    const maxSpeed = 60;
+    const minSpeed = 14;
+    const viewportHeight = window.innerHeight;
+
+    if (clientY < edgeThreshold) {
+        const ratio = (edgeThreshold - clientY) / edgeThreshold;
+        autoScrollSpeed = -Math.round(minSpeed + (maxSpeed - minSpeed) * ratio);
+        startAutoScroll();
+    } else if (clientY > viewportHeight - edgeThreshold) {
+        const ratio = (clientY - (viewportHeight - edgeThreshold)) / edgeThreshold;
+        autoScrollSpeed = Math.round(minSpeed + (maxSpeed - minSpeed) * ratio);
+        startAutoScroll();
+    } else {
+        stopAutoScroll();
+    }
 }
 
 function updateEditModeButton() {
@@ -852,13 +902,11 @@ async function initPointLimit() {
 /* -------------------- Init -------------------- */
 
 document.addEventListener("DOMContentLoaded", async () => {
-    try {
-        await initCardOrder();
-        await initCollapsibleCards();
-        await initEditMode();
-    } finally {
-        document.body.classList.remove("ui-loading");
-    }
+    await initCardOrder();
+    await initCollapsibleCards();
+    await initEditMode();
+
+    document.body.classList.remove("ui-loading");
 
     initChart();
     initRelayChart();
