@@ -632,3 +632,65 @@ html.dark .overview-storage-bar {
     font-size: 40px;
   }
 }
+
+#cardsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+#cardsContainer .card {
+  margin-bottom: 0;
+}
+
+.nav-left {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-btn.locked {
+  background: var(--danger);
+}
+
+.icon-btn.locked:hover {
+  background: var(--danger-hover);
+}
+
+.icon-btn.unlocked {
+  background: var(--success);
+}
+
+.icon-btn.unlocked:hover {
+  background: var(--success-hover);
+}
+
+body.edit-mode .card-header {
+  cursor: grab;
+}
+
+body.edit-mode .card.dragging .card-header {
+  cursor: grabbing;
+}
+
+body.edit-mode .card {
+  user-select: none;
+}
+
+body.edit-mode .card.dragging {
+  opacity: 0.55;
+}
+
+body.edit-mode .card.drag-over-top {
+  box-shadow: inset 0 4px 0 var(--primary), 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+body.edit-mode .card.drag-over-bottom {
+  box-shadow: inset 0 -4px 0 var(--primary), 0 8px 24px rgba(0, 0, 0, 0.08);
+}

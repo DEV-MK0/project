@@ -9,6 +9,8 @@ let measurementCounter = 0;
 let cpuChart;
 let ramChart;
 let clockTimer = null;
+let editMode = false;
+let draggedCard = null;
 
 /* -------------------- Helpers -------------------- */
 
@@ -48,6 +50,163 @@ function createTable(columns, rows) {
 
     table.appendChild(tbody);
     return table;
+}
+
+function getCardsContainer() {
+    return document.getElementById("cardsContainer");
+}
+
+function getOrderedCardIds() {
+    return Array.from(getCardsContainer().querySelectorAll(".card")).map(card => card.id);
+}
+
+async function saveCardOrder() {
+    await fetch("/set_card_order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getOrderedCardIds())
+    });
+}
+
+function applyCardOrder(order) {
+    if (!Array.isArray(order) || order.length === 0) return;
+
+    const container = getCardsContainer();
+    const cardsById = {};
+
+    container.querySelectorAll(".card").forEach(card => {
+        cardsById[card.id] = card;
+    });
+
+    order.forEach(id => {
+        if (cardsById[id]) {
+            container.appendChild(cardsById[id]);
+        }
+    });
+}
+
+function buildNavbar() {
+    const nav = document.getElementById("navLinks");
+    const cards = getCardsContainer().querySelectorAll(".card");
+
+    nav.innerHTML = "";
+
+    cards.forEach(card => {
+        const link = document.createElement("a");
+        link.href = `#${card.id}`;
+        link.textContent = card.dataset.navTitle || card.querySelector("h2")?.textContent || card.id;
+        nav.appendChild(link);
+    });
+}
+
+function updateEditModeButton() {
+    const icon = document.getElementById("editModeIcon");
+    icon.textContent = editMode ? "🔓" : "🔒";
+}
+
+function setCardsDraggable(enabled) {
+    document.querySelectorAll("#cardsContainer .card").forEach(card => {
+        card.draggable = enabled;
+    });
+}
+
+function setEditMode(enabled) {
+    editMode = !!enabled;
+    document.body.classList.toggle("edit-mode", editMode);
+    setCardsDraggable(editMode);
+    updateEditModeButton();
+}
+
+async function initEditMode() {
+    const data = await api("/get_edit_mode");
+    setEditMode(data.editMode);
+
+    document.getElementById("editModeToggle").addEventListener("click", async () => {
+        setEditMode(!editMode);
+        await fetch(`/set_edit_mode?enabled=${editMode}`);
+    });
+}
+
+function clearDragMarkers() {
+    document.querySelectorAll(".drag-over-top, .drag-over-bottom").forEach(card => {
+        card.classList.remove("drag-over-top", "drag-over-bottom");
+    });
+}
+
+function initDragAndDrop() {
+    document.querySelectorAll("#cardsContainer .card").forEach(card => {
+        card.addEventListener("dragstart", (event) => {
+            if (!editMode) {
+                event.preventDefault();
+                return;
+            }
+
+            draggedCard = card;
+            card.classList.add("dragging");
+            event.dataTransfer.effectAllowed = "move";
+        });
+
+        card.addEventListener("dragend", async () => {
+            card.classList.remove("dragging");
+            clearDragMarkers();
+            draggedCard = null;
+            buildNavbar();
+            await saveCardOrder();
+        });
+
+        card.addEventListener("dragover", (event) => {
+            if (!editMode || !draggedCard || draggedCard === card) return;
+
+            event.preventDefault();
+
+            const rect = card.getBoundingClientRect();
+            const middle = rect.top + rect.height / 2;
+
+            clearDragMarkers();
+
+            if (event.clientY < middle) {
+                card.classList.add("drag-over-top");
+            } else {
+                card.classList.add("drag-over-bottom");
+            }
+        });
+
+        card.addEventListener("dragleave", () => {
+            card.classList.remove("drag-over-top", "drag-over-bottom");
+        });
+
+        card.addEventListener("drop", (event) => {
+            if (!editMode || !draggedCard || draggedCard === card) return;
+
+            event.preventDefault();
+
+            const rect = card.getBoundingClientRect();
+            const middle = rect.top + rect.height / 2;
+
+            if (event.clientY < middle) {
+                card.parentNode.insertBefore(draggedCard, card);
+            } else {
+                card.parentNode.insertBefore(draggedCard, card.nextSibling);
+            }
+
+            clearDragMarkers();
+        });
+    });
+}
+
+function updateEditModeButton() {
+    const icon = document.getElementById("editModeIcon");
+    const btn = document.getElementById("editModeToggle");
+
+    icon.textContent = editMode ? "🔓" : "🔒";
+
+    btn.classList.remove("locked", "unlocked");
+
+    if (editMode) {
+        btn.classList.add("unlocked"); // green
+    } else {
+        btn.classList.add("locked");   // red
+    }
 }
 
 function formatDuration(totalSeconds) {
@@ -382,7 +541,7 @@ function initWebSocket() {
 
         measurementCounter++;
 
-        // every 50 measurements → refresh storage
+        // every 25 measurements → refresh storage
         if (measurementCounter >= 25) {
             measurementCounter = 0;
             refreshStorageStatus();
@@ -722,8 +881,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         relayChart.update();
     });
 
+    await initCardOrder();
     await initPointLimit();
     await initCollapsibleCards();
+    await initEditMode();
+
+    initDragAndDrop();
 
     await Promise.all([
         initLogging(),
@@ -765,4 +928,10 @@ async function initCollapsibleCards() {
             });
         });
     });
+}
+
+async function initCardOrder() {
+    const data = await api("/get_card_order");
+    applyCardOrder(data.cardOrder || []);
+    buildNavbar();
 }

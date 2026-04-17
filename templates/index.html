@@ -22,17 +22,13 @@
 <body>
 
   <nav class="top-nav">
-    <div class="nav-left">
-      <a href="#overview">Overview</a>
-      <a href="#live-chart">Live Chart</a>
-      <a href="#chart-settings">Chart Settings</a>
-      <a href="#status">Measurement Status</a>
-      <a href="#control">Measurement Control</a>
-      <a href="#sql">SQL Console</a>
-      <a href="#storage-management">Storage Management</a>
-    </div>
+    <div class="nav-left" id="navLinks"></div>
 
     <div class="nav-right">
+      <button id="editModeToggle" class="icon-btn" type="button" aria-label="Toggle edit mode" title="Toggle edit mode">
+        <span id="editModeIcon">🔒</span>
+      </button>
+
       <div class="theme-control">
         <span class="theme-label">Dark Mode</span>
         <label class="switch">
@@ -50,271 +46,276 @@
       <p>Live Temperature, Humidity und SQL Console</p>
     </header>
 
-    <!-- Overview -->
-    <section class="card" id="overview">
-      <div class="card-header">
-        <h2>Overview</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
-        <div class="overview-grid">
-          <div class="overview-clock">
-            <div id="overviewTime" class="overview-time">00:00</div>
-            <div id="overviewDate" class="overview-date">-</div>
-          </div>
+    <div id="cardsContainer">
 
-          <div class="overview-chart-card">
-            <div class="overview-chart-header">
-              <span>CPU</span>
-              <strong id="cpuPercentText">0%</strong>
+      <!-- Overview -->
+      <section class="card" id="overview" data-nav-title="Overview">
+        <div class="card-header">
+          <h2>Overview</h2>
+          <button class="collapse-btn">^</button>
+        </div>
+        <div class="card-body">
+          <div class="overview-grid">
+            <div class="overview-clock">
+              <div id="overviewTime" class="overview-time">00:00</div>
+              <div id="overviewDate" class="overview-date">-</div>
             </div>
-            <div class="overview-chart-wrap">
-              <canvas id="cpuChart"></canvas>
+
+            <div class="overview-chart-card">
+              <div class="overview-chart-header">
+                <span>CPU</span>
+                <strong id="cpuPercentText">0%</strong>
+              </div>
+              <div class="overview-chart-wrap">
+                <canvas id="cpuChart"></canvas>
+              </div>
+              <div class="overview-chart-meta">
+                <span id="cpuUnitsText">Used: 0%</span>
+              </div>
             </div>
-            <div class="overview-chart-meta">
-              <span id="cpuUnitsText">Used: 0%</span>
+
+            <div class="overview-chart-card">
+              <div class="overview-chart-header">
+                <span>RAM</span>
+                <strong id="ramPercentText">0%</strong>
+              </div>
+              <div class="overview-chart-wrap">
+                <canvas id="ramChart"></canvas>
+              </div>
+              <div class="overview-chart-meta">
+                <span id="ramUnitsText">0 GB / 0 GB</span>
+              </div>
             </div>
           </div>
 
-          <div class="overview-chart-card">
-            <div class="overview-chart-header">
-              <span>RAM</span>
-              <strong id="ramPercentText">0%</strong>
+          <div class="overview-storage-block">
+            <div class="overview-storage-header">
+              <span>System Storage</span>
+              <strong id="storagePercentText">0%</strong>
             </div>
-            <div class="overview-chart-wrap">
-              <canvas id="ramChart"></canvas>
+
+            <div class="overview-storage-bar">
+              <div id="storageBarFill" class="overview-storage-bar-fill"></div>
             </div>
-            <div class="overview-chart-meta">
-              <span id="ramUnitsText">0 GB / 0 GB</span>
+
+            <div class="overview-storage-meta">
+              <span id="storageUsedText">Used: 0 GB</span>
+              <span id="storageTotalText">Total: 0 GB</span>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="overview-storage-block">
-          <div class="overview-storage-header">
-            <span>System Storage</span>
-            <strong id="storagePercentText">0%</strong>
-          </div>
-
-          <div class="overview-storage-bar">
-            <div id="storageBarFill" class="overview-storage-bar-fill"></div>
-          </div>
-
-          <div class="overview-storage-meta">
-            <span id="storageUsedText">Used: 0 GB</span>
-            <span id="storageTotalText">Total: 0 GB</span>
+      <!-- Live Chart -->
+      <section class="card" id="live-chart" data-nav-title="Live Chart">
+        <div class="card-header">
+          <h2>Live Chart</h2>
+          <button class="collapse-btn">^</button>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="liveChart"></canvas>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Live Chart -->
-    <section class="card" id="live-chart">
-      <div class="card-header">
-        <h2>Live Chart</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
-        <div class="chart-container">
-          <canvas id="liveChart"></canvas>
+      <!-- Chart Settings -->
+      <section class="card" id="chart-settings" data-nav-title=" Chart Settings">
+        <div class="card-header">
+          <h2>Chart Settings</h2>
+          <button class="collapse-btn">^</button>
         </div>
-      </div>
-    </section>
+        <div class="card-body">
 
-    <!-- Chart Settings -->
-    <section class="card" id="chart-settings">
-      <div class="card-header">
-        <h2>Chart Settings</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
+          <div class="settings-row">
+            <div class="setting-item">
+              <label for="pointLimit">Limit:</label>
+              <select id="pointLimit">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
 
-        <div class="settings-row">
-          <div class="setting-item">
-            <label for="pointLimit">Limit:</label>
-            <select id="pointLimit">
-              <option value="10" selected>10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
+            <div class="setting-item">
+              <span id="logLabel">Logging</span>
+              <label class="switch">
+                <input type="checkbox" id="logToggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="setting-item">
+              <label for="interval">Interval:</label>
+              <input type="number" id="interval" min="2" onchange="setinterval()">
+            </div>
           </div>
 
-          <div class="setting-item">
-            <span id="logLabel">Logging</span>
-            <label class="switch">
-              <input type="checkbox" id="logToggle" checked>
-              <span class="slider"></span>
-            </label>
+        </div>
+      </section>
+
+      <!-- Status -->
+      <section class="card" id="status" data-nav-title="Measurement Status">
+        <div class="card-header">
+          <h2>Measurement Status</h2>
+          <button class="collapse-btn">^</button>
+        </div>
+        <div class="card-body">
+
+          <table>
+            <thead>
+              <tr>
+                <th>Sensor</th>
+                <th>Temp (°C)</th>
+                <th>Humidity (%)</th>
+                <th>Dew Point (°C)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Inside</td>
+                <td id="t1">-</td>
+                <td id="h1">-</td>
+                <td id="tp1">-</td>
+              </tr>
+              <tr>
+                <td>Outside</td>
+                <td id="t2">-</td>
+                <td id="h2">-</td>
+                <td id="tp2">-</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="status-grid">
+            <div>
+              <span>Delta Taupunkt</span>
+              <strong id="delta_tp">- °C</strong>
+            </div>
+            <div>
+              <span>Relay</span>
+              <strong id="relay">-</strong>
+            </div>
+            <div>
+              <span>Runtime</span>
+              <strong id="runtime">00:00:00</strong>
+            </div>
           </div>
 
-          <div class="setting-item">
-            <label for="interval">Interval:</label>
-            <input type="number" id="interval" min="2" onchange="setinterval()">
-          </div>
         </div>
+      </section>
 
-      </div>
-    </section>
-
-    <!-- Status -->
-    <section class="card" id="status">
-      <div class="card-header">
-        <h2>Measurement Status</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
-
-        <table>
-          <thead>
-            <tr>
-              <th>Sensor</th>
-              <th>Temp (°C)</th>
-              <th>Humidity (%)</th>
-              <th>Dew Point (°C)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Inside</td>
-              <td id="t1">-</td>
-              <td id="h1">-</td>
-              <td id="tp1">-</td>
-            </tr>
-            <tr>
-              <td>Outside</td>
-              <td id="t2">-</td>
-              <td id="h2">-</td>
-              <td id="tp2">-</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="status-grid">
-          <div>
-            <span>Delta Taupunkt</span>
-            <strong id="delta_tp">- °C</strong>
-          </div>
-          <div>
-            <span>Relay</span>
-            <strong id="relay">-</strong>
-          </div>
-          <div>
-            <span>Runtime</span>
-            <strong id="runtime">00:00:00</strong>
-          </div>
+      <!-- Relay Chart -->
+      <section class="card" id="relay-chart" data-nav-title="Relay Chart">
+        <div class="card-header">
+          <h2>Relay Status</h2>
+          <button class="collapse-btn">^</button>
         </div>
+        <div class="card-body">
 
-      </div>
-    </section>
-
-    <!-- Relay Chart -->
-    <section class="card" id="relay-chart">
-      <div class="card-header">
-        <h2>Relay Status</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
-
-        <div class="chart-container">
-          <canvas id="relayChart"></canvas>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Control -->
-    <section class="card" id="control">
-      <div class="card-header">
-        <h2>Measurement Control</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
-
-        <div class="control-row">
-          <input type="number" id="measure_count" value="5" min="1">
-          <button onclick="startMeasurements()">Start Measurements</button>
-
-          <div class="progress-circle">
-            <svg width="36" height="36">
-              <circle class="bg" cx="18" cy="18" r="16"></circle>
-              <circle class="progress" cx="18" cy="18" r="16"></circle>
-            </svg>
+          <div class="chart-container">
+            <canvas id="relayChart"></canvas>
           </div>
 
-          <span id="measureStatus" class="measure-status">✓ Done</span>
+        </div>
+      </section>
+
+      <!-- Control -->
+      <section class="card" id="control" data-nav-title="Measurement Control">
+        <div class="card-header">
+          <h2>Measurement Control</h2>
+          <button class="collapse-btn">^</button>
+        </div>
+        <div class="card-body">
+
+          <div class="control-row">
+            <input type="number" id="measure_count" value="5" min="1">
+            <button onclick="startMeasurements()">Start Measurements</button>
+
+            <div class="progress-circle">
+              <svg width="36" height="36">
+                <circle class="bg" cx="18" cy="18" r="16"></circle>
+                <circle class="progress" cx="18" cy="18" r="16"></circle>
+              </svg>
+            </div>
+
+            <span id="measureStatus" class="measure-status">✓ Done</span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SQL -->
+      <section class="card" id="sql" data-nav-title="SQL Console">
+        <div class="card-header">
+          <h2>SQL Console</h2>
+          <button class="collapse-btn">^</button>
+        </div>
+        <div class="card-body">
+
+          <textarea id="sqlInput">SELECT * FROM measurements;</textarea>
+
+          <div class="button-group">
+            <button onclick="runSQLFromInput()">Run SQL</button>
+            <button onclick="selectTable()">Select Table</button>
+            <button onclick="resetTable()" class="danger">Reset Table</button>
+            <button onclick="exportCSV()" class="success">Export CSV</button>
+          </div>
+
+          <div id="sqlTableContainer"></div>
+          <pre id="sqlResult"></pre>
+
+        </div>
+      </section>
+
+      <section class="card" id="storage-management" data-nav-title="Storage Management">
+        <div class="card-header">
+          <h2>Storage Management</h2>
+          <button class="collapse-btn">^</button>
         </div>
 
-      </div>
-    </section>
+        <div class="card-body">
+          <div class="storage-grid">
+            <div class="storage-chart-wrap">
+              <canvas id="storageChart"></canvas>
+            </div>
 
-    <!-- SQL -->
-    <section class="card" id="sql">
-      <div class="card-header">
-        <h2>SQL Console</h2>
-        <button class="collapse-btn">^</button>
-      </div>
-      <div class="card-body">
+            <div class="storage-info">
+              <div class="storage-stat">
+                <span>Database Size</span>
+                <strong id="dbSizeText">-</strong>
+              </div>
 
-        <textarea id="sqlInput">SELECT * FROM measurements;</textarea>
+              <div class="storage-stat">
+                <span>Configured Limit</span>
+                <strong id="dbLimitText">-</strong>
+              </div>
 
-        <div class="button-group">
-          <button onclick="runSQLFromInput()">Run SQL</button>
-          <button onclick="selectTable()">Select Table</button>
-          <button onclick="resetTable()" class="danger">Reset Table</button>
-          <button onclick="exportCSV()" class="success">Export CSV</button>
+              <div class="storage-stat">
+                <span>Usage</span>
+                <strong id="dbUsageText">-</strong>
+              </div>
+
+              <div class="storage-limit-row">
+                <input type="number" id="dbLimitValue" min="20" step="0.1" value="100">
+                  <select id="dbLimitUnit">
+                    <option value="KB">KB</option>
+                    <option value="MB">MB</option>
+                    <option value="GB">GB</option>
+                    <option value="TB">TB</option>
+                  </select>
+                  <button onclick="saveDbLimit()" class="danger">Save Limit</button>
+                  <button onclick="refreshStorageStatus()">Refresh</button>
+              </div>
+
+              <p id="storageLimitNotice" class="storage-limit-notice"></p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div id="sqlTableContainer"></div>
-        <pre id="sqlResult"></pre>
-
-      </div>
-    </section>
-
-    <section class="card" id="storage-management">
-  <div class="card-header">
-    <h2>Storage Management</h2>
-    <button class="collapse-btn">^</button>
-  </div>
-
-  <div class="card-body">
-    <div class="storage-grid">
-      <div class="storage-chart-wrap">
-        <canvas id="storageChart"></canvas>
-      </div>
-
-      <div class="storage-info">
-        <div class="storage-stat">
-          <span>Database Size</span>
-          <strong id="dbSizeText">-</strong>
-        </div>
-
-        <div class="storage-stat">
-          <span>Configured Limit</span>
-          <strong id="dbLimitText">-</strong>
-        </div>
-
-        <div class="storage-stat">
-          <span>Usage</span>
-          <strong id="dbUsageText">-</strong>
-        </div>
-
-        <div class="storage-limit-row">
-          <input type="number" id="dbLimitValue" min="20" step="0.1" value="100">
-          <select id="dbLimitUnit">
-            <option value="KB">KB</option>
-            <option value="MB">MB</option>
-            <option value="GB">GB</option>
-            <option value="TB">TB</option>
-          </select>
-          <button onclick="saveDbLimit()" class="danger">Save Limit</button>
-          <button onclick="refreshStorageStatus()">Refresh</button>
-        </div>
-
-        <p id="storageLimitNotice" class="storage-limit-notice"></p>
-      </div>
     </div>
-  </div>
-</section>
+
   </div>
 </body>
 </html>

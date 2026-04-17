@@ -47,7 +47,9 @@ def load_state():
             "theme": "light",
             "interval": 2,
             "pointLimit": 10,
-            "collaspedCards": {},
+            "collapsedCards": {},
+            "cardOrder": [],
+            "editMode": False,
             "dbLimitValue": 20,
             "dbLimitUnit": "KB"
         }
@@ -525,6 +527,27 @@ def get_system_overview():
         "memory": memory,
         "disk": disk
     }
+
+@app.get("/get_card_order")
+def get_card_order():
+    return {"cardOrder": state_get("cardOrder", [])}
+
+
+@app.post("/set_card_order")
+def set_card_order(order: list[str] = Body(...)):
+    state_set("cardOrder", order)
+    return {"status": "ok"}
+
+
+@app.get("/get_edit_mode")
+def get_edit_mode():
+    return {"editMode": state_get("editMode", False)}
+
+
+@app.get("/set_edit_mode")
+def set_edit_mode(enabled: bool):
+    state_set("editMode", enabled)
+    return {"editMode": enabled}
 
 # -------------------- Init --------------------
 
