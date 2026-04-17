@@ -694,3 +694,13 @@ body.edit-mode .card.drag-over-top {
 body.edit-mode .card.drag-over-bottom {
   box-shadow: inset 0 -4px 0 var(--primary), 0 8px 24px rgba(0, 0, 0, 0.08);
 }
+
+body.ui-loading .container {
+  visibility: hidden;
+}
+
+body.ui-loading .card,
+body.ui-loading .card-body,
+body.ui-loading .collapse-btn {
+  transition: none !important;
+}

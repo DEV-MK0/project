@@ -852,6 +852,14 @@ async function initPointLimit() {
 /* -------------------- Init -------------------- */
 
 document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        await initCardOrder();
+        await initCollapsibleCards();
+        await initEditMode();
+    } finally {
+        document.body.classList.remove("ui-loading");
+    }
+
     initChart();
     initRelayChart();
     initStorageChart();
@@ -881,10 +889,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         relayChart.update();
     });
 
-    await initCardOrder();
     await initPointLimit();
-    await initCollapsibleCards();
-    await initEditMode();
 
     initDragAndDrop();
 

@@ -290,7 +290,10 @@ def get_disk_info():
 
 @app.get("/")
 async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "initial_state": state
+    })
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
