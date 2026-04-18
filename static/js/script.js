@@ -320,7 +320,9 @@ function formatBytesToBestUnit(bytes) {
 const doughnutCenterTextPlugin = {
     id: "doughnutCenterTextPlugin",
     afterDraw(chart) {
-        const text = chart?.options?.plugins?.centerText?.text;
+        const centerText = chart?.options?.plugins?.centerText || {};
+        const text = centerText.text;
+
         if (!text) return;
 
         const { ctx, chartArea } = chart;
@@ -332,7 +334,7 @@ const doughnutCenterTextPlugin = {
         ctx.save();
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#111";
+        ctx.fillStyle = centerText.color || getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
         ctx.font = "bold 22px Arial";
         ctx.fillText(text, x, y);
         ctx.restore();
@@ -364,7 +366,8 @@ function createOverviewDoughnut(canvasId, initialText = "0%") {
                     enabled: true
                 },
                 centerText: {
-                    text: initialText
+                    text: initialText,
+                    color: getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280"
                 }
             }
         },
@@ -384,36 +387,39 @@ async function refreshOverview() {
     const ramPercent = Math.max(0, Math.min(data.memory?.percent ?? 0, 100));
     const ramUsed = data.memory?.used ?? 0;
     const ramTotal = data.memory?.total ?? 0;
+    const cpuFreqGHz = data.cpuFrequencyGHz ?? null;
 
     const diskPercent = Math.max(0, Math.min(data.disk?.percent ?? 0, 100));
     const diskUsed = data.disk?.used ?? 0;
     const diskTotal = data.disk?.total ?? 0;
 
+    const cpuColor = getUsageColor(cpuPercent);
+    const ramColor = getUsageColor(ramPercent);
+
     if (cpuChart) {
         cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
+        cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
         cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
+        cpuChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
         cpuChart.update();
     }
 
     if (ramChart) {
         ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
+        ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
         ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
+        ramChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
         ramChart.update();
     }
 
-    const cpuPercentText = document.getElementById("cpuPercentText");
     const cpuUnitsText = document.getElementById("cpuUnitsText");
-    const ramPercentText = document.getElementById("ramPercentText");
     const ramUnitsText = document.getElementById("ramUnitsText");
     const storagePercentText = document.getElementById("storagePercentText");
     const storageUsedText = document.getElementById("storageUsedText");
     const storageTotalText = document.getElementById("storageTotalText");
     const storageBarFill = document.getElementById("storageBarFill");
 
-    if (cpuPercentText) cpuPercentText.textContent = `${cpuPercent.toFixed(1)}%`;
-    if (cpuUnitsText) cpuUnitsText.textContent = `Used: ${cpuPercent.toFixed(1)}%`;
-
-    if (ramPercentText) ramPercentText.textContent = `${ramPercent.toFixed(1)}%`;
+    if (cpuUnitsText) cpuUnitsText.textContent = cpuFreqGHz != null ? `${cpuFreqGHz.toFixed(2)} GHz` : "- GHz";
     if (ramUnitsText) ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
 
     if (storagePercentText) storagePercentText.textContent = `${diskPercent.toFixed(1)}%`;
@@ -509,13 +515,19 @@ async function refreshStorageStatus() {
 }
 
 async function saveDbLimit() {
-    const value = parseFloat(document.getElementById("dbLimitValue").value);
+    let value = parseFloat(document.getElementById("dbLimitValue").value);
     const unit = document.getElementById("dbLimitUnit").value;
 
     if (!Number.isFinite(value) || value <= 0) {
         alert("Please enter a valid database limit.");
         return;
     }
+
+    // round to next multiple of 4, min 4
+    value = Math.max(4, Math.ceil(value / 4) * 4);
+
+    // reflect in UI immediately
+    document.getElementById("dbLimitValue").value = value;
 
     await api(`/set_db_limit?value=${encodeURIComponent(value)}&unit=${encodeURIComponent(unit)}`);
     await refreshStorageStatus();
@@ -654,29 +666,41 @@ function updateOverviewFromWs(system) {
     const ramPercent = Math.max(0, Math.min(system.memory?.percent ?? 0, 100));
     const ramUsed = system.memory?.used ?? 0;
     const ramTotal = system.memory?.total ?? 0;
+    const cpuFreqGHz = system.cpuFrequencyGHz ?? null;
 
     const diskPercent = Math.max(0, Math.min(system.disk?.percent ?? 0, 100));
     const diskUsed = system.disk?.used ?? 0;
     const diskTotal = system.disk?.total ?? 0;
 
+    const cpuColor = getUsageColor(cpuPercent);
+    const ramColor = getUsageColor(ramPercent);
+
     if (cpuChart) {
         cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
+        cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
         cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
+        cpuChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
         cpuChart.update();
     }
 
     if (ramChart) {
         ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
+        ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
         ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
+        ramChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
         ramChart.update();
     }
 
-    document.getElementById("cpuPercentText").textContent = `${cpuPercent.toFixed(1)}%`;
-    document.getElementById("cpuUnitsText").textContent = `Used: ${cpuPercent.toFixed(1)}%`;
+    const cpuUnitsText = document.getElementById("cpuUnitsText");
+    const ramUnitsText = document.getElementById("ramUnitsText");
 
-    document.getElementById("ramPercentText").textContent = `${ramPercent.toFixed(1)}%`;
-    document.getElementById("ramUnitsText").textContent =
-        `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
+    if (cpuUnitsText) {
+        cpuUnitsText.textContent = cpuFreqGHz != null ? `${cpuFreqGHz.toFixed(2)} GHz` : "- GHz";
+    }
+
+    if (ramUnitsText) {
+        ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
+    }
 
     document.getElementById("storagePercentText").textContent = `${diskPercent.toFixed(1)}%`;
     document.getElementById("storageUsedText").textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
@@ -718,14 +742,58 @@ function updateStorageFromWs(data) {
 
 /* -------------------- Measurements -------------------- */
 
+function getUsageColor(percent) {
+    if (percent >= 75) return "#dc2626";
+    if (percent >= 40) return "#f59e0b";
+    return "#22c55e";
+}
+
+function getCpuFrequencyGHz() {
+    try {
+        const cores = navigator.hardwareConcurrency || 0;
+        if (!cores) return null;
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function formatCpuGHz(value) {
+    if (value == null || !Number.isFinite(value)) {
+        return "- GHz";
+    }
+    return `${value.toFixed(2)} GHz`;
+}
+
 async function startMeasurements() {
     const count = document.getElementById("measure_count").value;
-    const duration = count * 2;
+    const status = document.getElementById("measureStatus");
+    const circle = document.querySelector(".progress-circle .progress");
 
-    document.getElementById("measureStatus").style.display = "none";
+    status.style.display = "none";
+    status.style.color = "var(--success)";
+    status.textContent = "✓ Done";
+
+    const intervalValue = parseFloat(document.getElementById("interval").value) || 2;
+    const duration = count * intervalValue;
 
     startProgress(duration);
-    await api(`/save_measurements?count=${count}`);
+
+    const result = await api(`/save_measurements?count=${count}`);
+
+    if (result.status === "stopped") {
+        // stop animation visually
+        circle.style.stroke = "var(--danger)";
+        circle.style.strokeDashoffset = 0;
+
+        status.style.display = "inline";
+        status.style.color = "var(--danger)";
+        status.textContent = "Stopped: DB limit reached";
+
+        await refreshStorageStatus();
+        return;
+    }
+
     await refreshStorageStatus();
     await initLogging();
 }

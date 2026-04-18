@@ -329,6 +329,15 @@ tr:nth-child(even) td {
   transition: stroke-dashoffset 0.1s linear;
 }
 
+.progress-circle .progress.limit-reached {
+  stroke: var(--danger);
+}
+
+.measure-status.limit-reached {
+  color: var(--danger);
+  display: inline;
+}
+
 /* -------------------- Toggle Switch -------------------- */
 
 .switch {
@@ -523,7 +532,6 @@ tr:nth-child(even) td {
 .overview-chart-card {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   min-height: 220px;
 }
 
@@ -608,14 +616,14 @@ html.dark .overview-storage-bar {
   transition: width 0.3s ease;
 }
 
-.overview-storage-meta {
+.overview-chart-meta {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
+  align-items: center;      /* vertical center in remaining space */
+  justify-content: center;  /* horizontal center */
   color: var(--muted);
   font-size: 14px;
-  flex-wrap: wrap;
+  text-align: center;
 }
 
 @media (max-width: 900px) {

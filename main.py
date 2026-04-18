@@ -8,7 +8,7 @@ import csv
 import os
 import shutil
 import socket
-from math import log10
+from math import log10, ceil
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
@@ -70,6 +70,12 @@ def state_set(key, value):
 
 
 # -------------------- Core Logic --------------------
+
+
+def round_up_to_multiple_of_4(value):
+    value = float(value)
+    return max(4, int(ceil(value / 4.0) * 4))
+
 
 def taupunkt(t, r):
     a, b = (7.5, 237.3) if t >= 0 else (7.6, 240.7)
@@ -219,6 +225,16 @@ def logging_loop():
 _prev_cpu_total = None
 _prev_cpu_idle = None
 
+def get_cpu_frequency_ghz():
+    try:
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if "cpu MHz" in line:
+                    mhz = float(line.split(":", 1)[1].strip())
+                    return round(mhz / 1000.0, 2)
+    except Exception:
+        pass
+    return None
 
 def get_cpu_percent():
     global _prev_cpu_total, _prev_cpu_idle
@@ -321,6 +337,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if message_count == 1 or message_count % 5 == 0:
                 data["systemOverview"] = {
                     "cpuPercent": get_cpu_percent(),
+                    "cpuFrequencyGHz": get_cpu_frequency_ghz(),
                     "memory": get_memory_info(),
                     "disk": get_disk_info()
                 }
@@ -399,18 +416,42 @@ def set_db_limit(value: float, unit: str):
     if value <= 0:
         return {"error": "value must be greater than 0"}
 
-    state_set("dbLimitValue", value)
+    rounded_value = round_up_to_multiple_of_4(value)
+
+    state_set("dbLimitValue", rounded_value)
     state_set("dbLimitUnit", unit)
     enforce_db_limit()
 
-    return get_storage_status()
+    status = get_storage_status()
+    status["roundedInputValue"] = rounded_value
+    return status
 
 @app.get("/save_measurements")
 async def save_measurements_endpoint(count: int = Query(..., gt=0)):
+    saved = 0
+
     for _ in range(count):
-        save_measurement_once()
-        await asyncio.sleep(interval)
-    return {"status": "ok", "saved": count}
+        stored = save_measurement_once()
+        if not stored:
+            return {
+                "status": "stopped",
+                "saved": saved,
+                "requested": count,
+                "reason": "db_limit_reached",
+                "storageStatus": get_db_status()
+            }
+
+        saved += 1
+
+        if saved < count:
+            await asyncio.sleep(interval)
+
+    return {
+        "status": "ok",
+        "saved": saved,
+        "requested": count,
+        "storageStatus": get_db_status()
+    }
 
 @app.delete("/measurements/reset")
 def reset_measurements():
@@ -530,6 +571,7 @@ def get_system_overview():
     return {
         "hostname": socket.gethostname(),
         "cpuPercent": get_cpu_percent(),
+        "cpuFrequencyGHz": get_cpu_frequency_ghz(),
         "memory": memory,
         "disk": disk
     }
