@@ -589,12 +589,8 @@ function initWebSocket() {
             updateOverviewFromWs(data.systemOverview);
         }
 
-        measurementCounter++;
-
-        // every 25 measurements → refresh storage
-        if (measurementCounter >= 25) {
-            measurementCounter = 0;
-            refreshStorageStatus();
+        if (data.storageStatus) {
+            updateStorageFromWs(data.storageStatus);
         }
 
         if (data.program_start_ts) {
@@ -686,6 +682,38 @@ function updateOverviewFromWs(system) {
     document.getElementById("storageUsedText").textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
     document.getElementById("storageTotalText").textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
     document.getElementById("storageBarFill").style.width = `${diskPercent}%`;
+}
+
+function updateStorageFromWs(data) {
+    const sizeBytes = Math.max(data.dbSizeBytes ?? 0, 0);
+    const limitBytes = Math.max(data.dbLimitBytes ?? 0, 0);
+    const usedBytes = Math.min(sizeBytes, limitBytes);
+    const freeBytes = Math.max(limitBytes - usedBytes, 0);
+
+    const usedPercent = limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0;
+
+    document.getElementById("dbSizeText").textContent = formatBytes(sizeBytes);
+    document.getElementById("dbLimitText").textContent = formatBytes(limitBytes);
+    document.getElementById("dbUsageText").textContent = `${usedPercent.toFixed(1)}%`;
+    document.getElementById("dbLimitValue").value = data.dbLimitValue;
+    document.getElementById("dbLimitUnit").value = data.dbLimitUnit;
+
+    const notice = document.getElementById("storageLimitNotice");
+    notice.textContent = data.loggingStoppedByLimit
+        ? "Logging stopped because the database reached the configured limit."
+        : "Logging stops automatically when the configured limit is reached.";
+
+    if (storageChart) {
+        storageChart.data.datasets[0].data = [usedBytes, freeBytes];
+        storageChart.update();
+    }
+
+    if (data.loggingStoppedByLimit) {
+        const toggle = document.getElementById("logToggle");
+        if (toggle) {
+            toggle.checked = false;
+        }
+    }
 }
 
 /* -------------------- Measurements -------------------- */

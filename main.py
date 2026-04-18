@@ -188,6 +188,19 @@ def enforce_db_limit():
         return True
     return False
 
+def get_db_status():
+    size_bytes = get_db_size_bytes()
+    limit_bytes = get_db_limit_bytes()
+    used_percent = 0 if limit_bytes <= 0 else min((size_bytes / limit_bytes) * 100, 100)
+
+    return {
+        "dbSizeBytes": size_bytes,
+        "dbLimitBytes": limit_bytes,
+        "dbLimitValue": state_get("dbLimitValue", 20),
+        "dbLimitUnit": state_get("dbLimitUnit", "KB"),
+        "usedPercent": round(used_percent, 1),
+        "loggingStoppedByLimit": size_bytes >= limit_bytes
+    }
 
 # -------------------- Logging Thread --------------------
 
@@ -311,6 +324,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "memory": get_memory_info(),
                     "disk": get_disk_info()
                 }
+                data["storageStatus"] = get_db_status()
 
             await websocket.send_json(data)
             await asyncio.sleep(interval)
@@ -372,18 +386,7 @@ def set_logging(enabled: bool):
 
 @app.get("/storage_status")
 def get_storage_status():
-    size_bytes = get_db_size_bytes()
-    limit_bytes = get_db_limit_bytes()
-    used_percent = 0 if limit_bytes <= 0 else min((size_bytes / limit_bytes) * 100, 100)
-
-    return {
-        "dbSizeBytes": size_bytes,
-        "dbLimitBytes": limit_bytes,
-        "dbLimitValue": state_get("dbLimitValue", 20),
-        "dbLimitUnit": state_get("dbLimitUnit", "KB"),
-        "usedPercent": round(used_percent, 1),
-        "loggingStoppedByLimit": size_bytes >= limit_bytes
-    }
+    return get_db_status()
 
 
 @app.get("/set_db_limit")
