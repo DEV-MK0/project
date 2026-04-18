@@ -594,6 +594,7 @@ tr:nth-child(even) td {
 
 .overview-storage-header strong {
   font-size: 18px;
+  color: var(--muted);
 }
 
 .overview-storage-bar {
@@ -614,6 +615,21 @@ html.dark .overview-storage-bar {
   background: linear-gradient(90deg, #22c55e, #2563eb);
   border-radius: 999px;
   transition: width 0.3s ease;
+}
+
+.overview-storage-meta {
+  display: flex;
+  justify-content: center;   /* center horizontally */
+  align-items: center;
+  gap: 24px;                /* spacing between Used / Total */
+  margin-top: 16px;         /* space from bar */
+  color: var(--muted);      /* gray text */
+  font-size: 14px;
+  text-align: center;
+}
+
+.overview-storage-meta span {
+  color: var(--muted);      /* enforce gray */
 }
 
 .overview-chart-meta {

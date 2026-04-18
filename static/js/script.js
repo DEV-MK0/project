@@ -303,6 +303,32 @@ function updateOverviewClock() {
     if (dateEl) dateEl.textContent = date;
 }
 
+function updateOverviewStorageUi(diskPercent, diskUsed, diskTotal) {
+    const storagePercentText = document.getElementById("storagePercentText");
+    const storageUsedText = document.getElementById("storageUsedText");
+    const storageTotalText = document.getElementById("storageTotalText");
+    const storageBarFill = document.getElementById("storageBarFill");
+
+    const color = getUsageColor(diskPercent);  // NEW
+
+    if (storagePercentText) {
+        storagePercentText.textContent = `${diskPercent.toFixed(1)}%`;
+        storagePercentText.style.color = ""; 
+    }
+
+    if (storageUsedText) {
+        storageUsedText.textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
+    }
+
+    if (storageTotalText) {
+        storageTotalText.textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
+    }
+
+    if (storageBarFill) {
+        storageBarFill.style.width = `${diskPercent}%`;
+    }
+}
+
 function formatBytesToBestUnit(bytes) {
     const units = ["B", "KB", "MB", "GB", "TB"];
     let value = bytes;
@@ -400,7 +426,7 @@ async function refreshOverview() {
         cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
         cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
         cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
-        cpuChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
+        cpuChart.options.plugins.centerText.color = cpuColor;
         cpuChart.update();
     }
 
@@ -408,7 +434,7 @@ async function refreshOverview() {
         ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
         ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
         ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
-        ramChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
+        ramChart.options.plugins.centerText.color = ramColor;
         ramChart.update();
     }
 
@@ -419,16 +445,7 @@ async function refreshOverview() {
     const storageTotalText = document.getElementById("storageTotalText");
     const storageBarFill = document.getElementById("storageBarFill");
 
-    if (cpuUnitsText) cpuUnitsText.textContent = cpuFreqGHz != null ? `${cpuFreqGHz.toFixed(2)} GHz` : "- GHz";
-    if (ramUnitsText) ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
-
-    if (storagePercentText) storagePercentText.textContent = `${diskPercent.toFixed(1)}%`;
-    if (storageUsedText) storageUsedText.textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
-    if (storageTotalText) storageTotalText.textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
-
-    if (storageBarFill) {
-        storageBarFill.style.width = `${diskPercent}%`;
-    }
+    updateOverviewStorageUi(diskPercent, diskUsed, diskTotal);
 }
 
 /* ------------------- Storage ------------------- */
@@ -679,7 +696,7 @@ function updateOverviewFromWs(system) {
         cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
         cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
         cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
-        cpuChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
+        cpuChart.options.plugins.centerText.color = cpuColor;
         cpuChart.update();
     }
 
@@ -687,7 +704,7 @@ function updateOverviewFromWs(system) {
         ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
         ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
         ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
-        ramChart.options.plugins.centerText.color = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
+        ramChart.options.plugins.centerText.color = ramColor;
         ramChart.update();
     }
 
@@ -702,10 +719,7 @@ function updateOverviewFromWs(system) {
         ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
     }
 
-    document.getElementById("storagePercentText").textContent = `${diskPercent.toFixed(1)}%`;
-    document.getElementById("storageUsedText").textContent = `Used: ${formatBytesToBestUnit(diskUsed)}`;
-    document.getElementById("storageTotalText").textContent = `Total: ${formatBytesToBestUnit(diskTotal)}`;
-    document.getElementById("storageBarFill").style.width = `${diskPercent}%`;
+    updateOverviewStorageUi(diskPercent, diskUsed, diskTotal);
 }
 
 function updateStorageFromWs(data) {
