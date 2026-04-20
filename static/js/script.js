@@ -13,6 +13,7 @@ let editMode = false;
 let draggedCard = null;
 let autoScrollSpeed = 0;
 let autoScrollFrame = null;
+let selectedScheduleDays = [];
 
 /* -------------------- Helpers -------------------- */
 
@@ -448,6 +449,166 @@ async function refreshOverview() {
     updateOverviewStorageUi(diskPercent, diskUsed, diskTotal);
 }
 
+/* -------------------- Schedule -------------------- */
+
+function normalizeTimeInput(value) {
+    const cleaned = String(value).replace(/[^\d:]/g, "").trim();
+
+    if (/^\d{2}:\d{2}$/.test(cleaned)) {
+        return cleaned;
+    }
+
+    if (/^\d{4}$/.test(cleaned)) {
+        return `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
+    }
+
+    return cleaned;
+}
+
+function isValidTimeString(value) {
+    if (!/^\d{2}:\d{2}$/.test(value)) return false;
+
+    const [hour, minute] = value.split(":").map(Number);
+    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+function formatTimeInputLive(input) {
+    if (!input) return;
+
+    let digits = input.value.replace(/\D/g, "").slice(0, 4);
+
+    if (digits.length >= 3) {
+        input.value = `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    } else {
+        input.value = digits;
+    }
+}
+
+function getSelectedScheduleDays() {
+    return Array.from(document.querySelectorAll(".day-toggle.active"))
+        .map(btn => btn.dataset.day);
+}
+
+function applyScheduleDays(days) {
+    selectedScheduleDays = Array.isArray(days) ? days : [];
+
+    document.querySelectorAll(".day-toggle").forEach(btn => {
+        btn.classList.toggle("active", selectedScheduleDays.includes(btn.dataset.day));
+    });
+}
+
+function initScheduleDayButtons() {
+    document.querySelectorAll(".day-toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+            btn.classList.toggle("active");
+            selectedScheduleDays = getSelectedScheduleDays();
+        });
+    });
+}
+
+function renderScheduleStatus(data) {
+    const label = document.getElementById("scheduleLabel");
+    const status = document.getElementById("scheduleStatusText");
+
+    if (label) {
+        label.textContent = data.enabled ? "Schedule enabled" : "Schedule disabled";
+    }
+
+    if (status) {
+        const daysText = (data.days || []).length ? data.days.join(", ") : "no days selected";
+
+        let stateText = "Measuring is currently allowed.";
+        if (data.enabled && data.measuringAllowedNow === false) {
+            stateText = "Measuring is currently blocked by schedule.";
+        }
+
+        status.textContent = `${stateText} ${data.startTime} to ${data.endTime}, action ${data.action}, days: ${daysText}.`;
+    }
+}
+
+function initScheduleTimeInputs() {
+    const start = document.getElementById("scheduleStartTime");
+    const end = document.getElementById("scheduleEndTime");
+
+    [start, end].forEach(input => {
+        if (!input) return;
+
+        input.addEventListener("input", () => {
+            formatTimeInputLive(input);
+        });
+
+        input.addEventListener("blur", () => {
+            input.value = normalizeTimeInput(input.value);
+        });
+    });
+}
+
+async function loadSchedule() {
+    const data = await api("/get_schedule");
+
+    const enabled = document.getElementById("scheduleEnabled");
+    const start = document.getElementById("scheduleStartTime");
+    const end = document.getElementById("scheduleEndTime");
+    const action = document.getElementById("scheduleAction");
+
+    if (enabled) enabled.checked = !!data.enabled;
+    if (start) start.value = data.startTime || "00:00";
+    if (end) end.value = data.endTime || "17:00";
+    if (action) action.value = data.action || "OFF";
+
+    applyScheduleDays(data.days || []);
+    renderScheduleStatus(data);
+}
+
+async function saveSchedule() {
+    const enabled = document.getElementById("scheduleEnabled");
+    const start = document.getElementById("scheduleStartTime");
+    const end = document.getElementById("scheduleEndTime");
+    const action = document.getElementById("scheduleAction");
+
+    const startTime = normalizeTimeInput(start?.value || "");
+    const endTime = normalizeTimeInput(end?.value || "");
+    const days = getSelectedScheduleDays();
+
+    if (!isValidTimeString(startTime)) {
+        alert("Please enter a valid start time in HH:MM format.");
+        start?.focus();
+        return;
+    }
+
+    if (!isValidTimeString(endTime)) {
+        alert("Please enter a valid end time in HH:MM format.");
+        end?.focus();
+        return;
+    }
+
+    if (start) start.value = startTime;
+    if (end) end.value = endTime;
+
+    const payload = {
+        enabled: !!enabled?.checked,
+        startTime,
+        endTime,
+        action: action?.value || "OFF",
+        days
+    };
+
+    const result = await api("/set_schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (result.error) {
+        alert(result.error);
+        return;
+    }
+
+    applyScheduleDays(result.days || []);
+    renderScheduleStatus(result);
+    selectedScheduleDays = result.days || [];
+}
+
 /* ------------------- Storage ------------------- */
 
 function formatBytes(bytes) {
@@ -613,6 +774,32 @@ function initWebSocket() {
 
     ws.onmessage = function(event) {
         const data = JSON.parse(event.data);
+
+        if (data.scheduleBlocked) {
+            document.getElementById("t1").textContent = "-";
+            document.getElementById("h1").textContent = "-";
+            document.getElementById("tp1").textContent = "-";
+
+            document.getElementById("t2").textContent = "-";
+            document.getElementById("h2").textContent = "-";
+            document.getElementById("tp2").textContent = "-";
+
+            document.getElementById("delta_tp").textContent = "-";
+            document.getElementById("relay").dataset.relayState = "OFF";
+            document.getElementById("relay").textContent = "OFF";
+
+            updateRuntime();
+
+            if (data.systemOverview) {
+                updateOverviewFromWs(data.systemOverview);
+            }
+
+            if (data.storageStatus) {
+                updateStorageFromWs(data.storageStatus);
+            }
+
+            return;
+        }
 
         if (data.systemOverview) {
             updateOverviewFromWs(data.systemOverview);
@@ -795,8 +982,17 @@ async function startMeasurements() {
 
     const result = await api(`/save_measurements?count=${count}`);
 
+    if (result.status === "blocked_by_schedule") {
+        circle.style.stroke = "var(--danger)";
+        circle.style.strokeDashoffset = 0;
+
+        status.style.display = "inline";
+        status.style.color = "var(--danger)";
+        status.textContent = "Blocked by schedule";
+        return;
+    }
+
     if (result.status === "stopped") {
-        // stop animation visually
         circle.style.stroke = "var(--danger)";
         circle.style.strokeDashoffset = 0;
 
@@ -1022,6 +1218,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     initRelayChart();
     initStorageChart();
     initOverviewCharts();
+    initScheduleDayButtons();
+    initScheduleTimeInputs();
 
     updateOverviewClock();
     if (!clockTimer) {
@@ -1056,7 +1254,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         initTheme(),
         initInterval(),
         refreshStorageStatus(),
-        refreshOverview()
+        refreshOverview(),
+        loadSchedule()
     ]);
 
     initWebSocket();

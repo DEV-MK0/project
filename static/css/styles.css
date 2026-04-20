@@ -772,3 +772,126 @@ body.edit-mode #cardsContainer .card-header {
   border-radius: 10px;
   padding: 8px 10px;
 }
+
+/* -------------------- Schedule Measurements -------------------- */
+
+.schedule-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.schedule-header-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.schedule-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.schedule-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.schedule-field label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.schedule-field input,
+.schedule-field select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.schedule-field input[type="text"] {
+  font-family: inherit;
+}
+
+.schedule-days-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.schedule-days-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.day-toggle {
+  min-width: 56px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.day-toggle:hover {
+  background: var(--surface-alt);
+  border-color: var(--primary);
+}
+
+.day-toggle.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.schedule-status-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+/* allow interaction inside schedule card */
+#schedule-measurements .card-body,
+#schedule-measurements .card-body * {
+  pointer-events: auto;
+}
+
+@media (max-width: 700px) {
+  .schedule-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .day-toggle {
+    flex: 1 1 calc(25% - 10px);
+    min-width: 48px;
+  }
+}

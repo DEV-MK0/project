@@ -9,7 +9,7 @@ import os
 import shutil
 import socket
 from math import log10, ceil
-
+from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -42,7 +42,7 @@ def load_state():
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
-        return {
+       return {
             "logging": False,
             "theme": "light",
             "interval": 2,
@@ -51,9 +51,15 @@ def load_state():
             "cardOrder": [],
             "editMode": False,
             "dbLimitValue": 20,
-            "dbLimitUnit": "KB"
-        }
-
+            "dbLimitUnit": "KB",
+            "schedule": {
+                "enabled": False,
+                "startTime": "17:00",
+                "endTime": "00:00",
+                "action": "ON",
+                "days": ["MO", "TU", "WE", "TH", "FR"]
+            }
+}
 
 def _save_state():
     with open(STATE_FILE, "w") as f:
@@ -213,14 +219,102 @@ def get_db_status():
 def logging_loop():
     while state_get("logging"):
         try:
-            stored = save_measurement_once()
-            if not stored:
-                break
+            if measuring_allowed_now():
+                stored = save_measurement_once()
+                if not stored:
+                    break
+
             time.sleep(interval)
         except Exception as e:
             print("Logging error:", e)
 
 # -------------------- System Overview --------------------
+
+def get_default_schedule():
+    return {
+        "enabled": False,
+        "startTime": "17:00",
+        "endTime": "00:00",
+        "action": "ON",
+        "days": ["MO", "TU", "WE", "TH", "FR"]
+    }
+
+
+def get_schedule():
+    schedule = state_get("schedule", {})
+    default = get_default_schedule()
+
+    merged = {
+        "enabled": bool(schedule.get("enabled", default["enabled"])),
+        "startTime": str(schedule.get("startTime", default["startTime"])),
+        "endTime": str(schedule.get("endTime", default["endTime"])),
+        "action": str(schedule.get("action", default["action"])).upper(),
+        "days": list(schedule.get("days", default["days"]))
+    }
+
+    if merged["action"] not in ["ON", "OFF"]:
+        merged["action"] = "ON"
+
+    valid_days = {"MO", "TU", "WE", "TH", "FR", "SA", "SU"}
+    merged["days"] = [d for d in merged["days"] if d in valid_days]
+
+    return merged
+
+
+def parse_time_to_minutes(value: str):
+    try:
+        hour, minute = value.split(":")
+        hour = int(hour)
+        minute = int(minute)
+
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            return None
+
+        return hour * 60 + minute
+    except Exception:
+        return None
+
+
+def schedule_window_active_now(schedule):
+    if not schedule.get("enabled", False):
+        return True
+
+    day_map = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+    now = datetime.now()
+    weekday_code = day_map[now.weekday()]
+
+    if weekday_code not in schedule.get("days", []):
+        return False
+
+    start_minutes = parse_time_to_minutes(schedule.get("startTime", "00:00"))
+    end_minutes = parse_time_to_minutes(schedule.get("endTime", "00:00"))
+
+    if start_minutes is None or end_minutes is None:
+        return False
+
+    now_minutes = now.hour * 60 + now.minute
+
+    if start_minutes == end_minutes:
+        return True
+
+    if start_minutes < end_minutes:
+        return start_minutes <= now_minutes < end_minutes
+
+    return now_minutes >= start_minutes or now_minutes < end_minutes
+
+
+def measuring_allowed_now():
+    schedule = get_schedule()
+
+    if not schedule["enabled"]:
+        return True
+
+    active = schedule_window_active_now(schedule)
+
+    if schedule["action"] == "ON":
+        return active
+
+    return not active
 
 _prev_cpu_total = None
 _prev_cpu_idle = None
@@ -331,7 +425,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            data = compute_measurement()
+            if measuring_allowed_now():
+                data = compute_measurement()
+            else:
+                data = {
+                    "t1": "-",
+                    "h1": "-",
+                    "t2": "-",
+                    "h2": "-",
+                    "tp1": "-",
+                    "tp2": "-",
+                    "delta_tp": "-",
+                    "relay": "OFF",
+                    "runtime_seconds": int(time.time() - START_TIME),
+                    "program_start_ts": PROGRAM_START_TS,
+                    "scheduleBlocked": True
+                }
+
             message_count += 1
 
             if message_count == 1 or message_count % 5 == 0:
@@ -426,11 +536,70 @@ def set_db_limit(value: float, unit: str):
     status["roundedInputValue"] = rounded_value
     return status
 
+@app.get("/get_schedule")
+def get_schedule_endpoint():
+    schedule = get_schedule()
+    schedule["measuringAllowedNow"] = measuring_allowed_now()
+    return schedule
+
+
+@app.post("/set_schedule")
+def set_schedule(data: dict = Body(...)):
+    enabled = bool(data.get("enabled", False))
+    start_time = str(data.get("startTime", "17:00"))
+    end_time = str(data.get("endTime", "00:00"))
+    action = str(data.get("action", "ON")).upper()
+    days = data.get("days", [])
+
+    if parse_time_to_minutes(start_time) is None:
+        return {"error": "invalid startTime"}
+
+    if parse_time_to_minutes(end_time) is None:
+        return {"error": "invalid endTime"}
+
+    if action not in ["ON", "OFF"]:
+        return {"error": "invalid action"}
+
+    valid_days = {"MO", "TU", "WE", "TH", "FR", "SA", "SU"}
+    days = [d for d in days if d in valid_days]
+
+    schedule = {
+        "enabled": enabled,
+        "startTime": start_time,
+        "endTime": end_time,
+        "action": action,
+        "days": days
+    }
+
+    state_set("schedule", schedule)
+
+    result = get_schedule()
+    result["measuringAllowedNow"] = measuring_allowed_now()
+    return result
+
 @app.get("/save_measurements")
 async def save_measurements_endpoint(count: int = Query(..., gt=0)):
+    if not measuring_allowed_now():
+        return {
+            "status": "blocked_by_schedule",
+            "saved": 0,
+            "requested": count,
+            "reason": "schedule_blocked",
+            "storageStatus": get_db_status()
+        }
+
     saved = 0
 
     for _ in range(count):
+        if not measuring_allowed_now():
+            return {
+                "status": "blocked_by_schedule",
+                "saved": saved,
+                "requested": count,
+                "reason": "schedule_blocked",
+                "storageStatus": get_db_status()
+            }
+
         stored = save_measurement_once()
         if not stored:
             return {

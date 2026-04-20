@@ -248,6 +248,69 @@
         </div>
       </section>
 
+<section class="card" id="schedule-measurements" data-nav-title="Schedule Measurements">
+  <div class="card-header">
+    <h2>Schedule Measurements</h2>
+    <button class="collapse-btn">^</button>
+  </div>
+
+  <div class="card-body">
+    <div class="schedule-layout">
+      <div class="schedule-header-row">
+        <div class="schedule-toggle-wrap">
+          <span id="scheduleLabel">Schedule disabled</span>
+          <label class="switch">
+            <input type="checkbox" id="scheduleEnabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="schedule-config-grid">
+        <div class="schedule-field">
+          <label for="scheduleStartTime">From</label>
+          <input type="text" id="scheduleStartTime" value="00:00" inputmode="numeric" placeholder="HH:MM" maxlength="5">
+        </div>
+
+        <div class="schedule-field">
+          <label for="scheduleEndTime">To</label>
+          <input type="text" id="scheduleEndTime" value="17:00" inputmode="numeric" placeholder="HH:MM" maxlength="5">
+        </div>
+
+        <div class="schedule-field">
+          <label for="scheduleAction">Action</label>
+          <select id="scheduleAction">
+            <option value="OFF">OFF</option>
+            <option value="ON">ON</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="schedule-days-block">
+        <span class="schedule-days-label">Days</span>
+        <div class="schedule-days" id="scheduleDays">
+          <button type="button" class="day-toggle" data-day="MO">MO</button>
+          <button type="button" class="day-toggle" data-day="TU">TU</button>
+          <button type="button" class="day-toggle" data-day="WE">WE</button>
+          <button type="button" class="day-toggle" data-day="TH">TH</button>
+          <button type="button" class="day-toggle" data-day="FR">FR</button>
+          <button type="button" class="day-toggle" data-day="SA">SA</button>
+          <button type="button" class="day-toggle" data-day="SU">SU</button>
+        </div>
+      </div>
+
+      <div class="schedule-actions">
+        <button type="button" onclick="saveSchedule()" class="success">Save Schedule</button>
+        <button type="button" onclick="loadSchedule()">Refresh</button>
+      </div>
+
+      <p id="scheduleStatusText" class="schedule-status-text">
+        Measuring is currently allowed.
+      </p>
+    </div>
+  </div>
+</section>
+
       <!-- SQL -->
       <section class="card" id="sql" data-nav-title="SQL Console">
         <div class="card-header">
