@@ -1254,7 +1254,12 @@ function initRelayChart() {
                     min: -0.1,
                     max: 1.1,
                     ticks: {
-                        stepSize: 1
+                        stepSize: 1,
+                        callback: function(value) {
+                            if (value === 1) return "ON";
+                            if (value === 0) return "OFF";
+                            return "";
+                        }
                     }
                 }
             }
