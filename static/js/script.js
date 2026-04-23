@@ -14,8 +14,49 @@ let draggedCard = null;
 let autoScrollSpeed = 0;
 let autoScrollFrame = null;
 let selectedScheduleDays = [];
+let latestOverviewState = null;
+let latestStorageState = null;
+let overviewAnimationPlayed = false;
+let storageAnimationPlayed = false;
+const chartAnimationFrames = {
+    cpu: null,
+    ram: null,
+    storage: null
+};
 
 /* -------------------- Helpers -------------------- */
+
+function getInitialState() {
+    const el = document.getElementById("initialState");
+    if (!el) return {};
+
+    try {
+        return JSON.parse(el.textContent);
+    } catch {
+        return {};
+    }
+}
+
+const initialState = getInitialState();
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function playStartupSequence() {
+    await refreshOverview();
+    await sleep(180);
+    await refreshStorageStatus(true);
+    await sleep(180);
+    initWebSocket();
+}
+
+function cancelChartAnimation(key) {
+    if (chartAnimationFrames[key]) {
+        cancelAnimationFrame(chartAnimationFrames[key]);
+        chartAnimationFrames[key] = null;
+    }
+}
 
 async function api(url, options = {}) {
     const res = await fetch(url, options);
@@ -121,8 +162,7 @@ function setEditMode(enabled) {
 }
 
 async function initEditMode() {
-    const data = await api("/get_edit_mode");
-    setEditMode(data.editMode);
+    setEditMode(!!initialState.editMode);
 
     document.getElementById("editModeToggle").addEventListener("click", async () => {
         setEditMode(!editMode);
@@ -202,6 +242,124 @@ function initDragAndDrop() {
 
     document.addEventListener("drop", stopAutoScroll);
     document.addEventListener("dragend", stopAutoScroll);
+}
+
+function clampMeasurementCount(value) {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
+
+function applyRelayState(relayState) {
+    const relayEl = document.getElementById("relay");
+    if (!relayEl) return;
+
+    const state = relayState === "ON" ? "ON" : "OFF";
+    relayEl.dataset.relayState = state;
+    relayEl.textContent = state;
+    relayEl.classList.toggle("relay-on", state === "ON");
+    relayEl.classList.toggle("relay-off", state === "OFF");
+}
+
+function getDbLimitConstraints(unit) {
+    if (unit === "KB") {
+        return { min: 16, step: 1 };
+    }
+
+    return { min: 1, step: 1 };
+}
+
+function applyDbLimitInputConstraints(unit) {
+    const input = document.getElementById("dbLimitValue");
+    if (!input) return;
+
+    const { min, step } = getDbLimitConstraints(unit);
+    input.min = String(min);
+    input.step = String(step);
+
+    const current = parseFloat(input.value);
+    if (!Number.isFinite(current) || current < min) {
+        input.value = String(min);
+    }
+}
+
+function animateOverviewDoughnut(chartKey, chartInstance, percent, color, duration = 800) {
+    if (!chartInstance) return;
+
+    cancelChartAnimation(chartKey);
+
+    const start = performance.now();
+
+    function frame(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = percent * eased;
+
+        chartInstance.data.datasets[0].data = [current, Math.max(100 - current, 0)];
+        chartInstance.data.datasets[0].backgroundColor = [color, "#cbd5e1"];
+        chartInstance.options.plugins.centerText.text = `${Math.round(current)}%`;
+        chartInstance.options.plugins.centerText.color = color;
+        chartInstance.update("none");
+
+        if (progress < 1) {
+            chartAnimationFrames[chartKey] = requestAnimationFrame(frame);
+            return;
+        }
+
+        chartAnimationFrames[chartKey] = null;
+        chartInstance.data.datasets[0].data = [percent, Math.max(100 - percent, 0)];
+        chartInstance.data.datasets[0].backgroundColor = [color, "#cbd5e1"];
+        chartInstance.options.plugins.centerText.text = `${percent.toFixed(0)}%`;
+        chartInstance.options.plugins.centerText.color = color;
+        chartInstance.update("none");
+    }
+
+    chartAnimationFrames[chartKey] = requestAnimationFrame(frame);
+}
+
+function animateStoragePieChart(usedBytes, freeBytes, duration = 800) {
+    if (!storageChart) return;
+
+    cancelChartAnimation("storage");
+
+    const start = performance.now();
+    const total = usedBytes + freeBytes;
+
+    function frame(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+
+        const currentUsed = usedBytes * eased;
+        const currentFree = Math.max(total - currentUsed, 0);
+
+        storageChart.data.datasets[0].data = [currentUsed, currentFree];
+        storageChart.update("none");
+
+        if (progress < 1) {
+            chartAnimationFrames["storage"] = requestAnimationFrame(frame);
+            return;
+        }
+
+        chartAnimationFrames["storage"] = null;
+        storageChart.data.datasets[0].data = [usedBytes, freeBytes];
+        storageChart.update("none");
+    }
+
+    chartAnimationFrames["storage"] = requestAnimationFrame(frame);
+}
+
+function animateOverviewStorageBar(percent) {
+    const bar = document.getElementById("storageBarFill");
+    if (!bar) return;
+
+    bar.classList.add("no-transition");
+    bar.style.width = "0%";
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            bar.classList.remove("no-transition");
+            bar.style.width = `${percent}%`;
+        });
+    });
 }
 
 function startAutoScroll() {
@@ -304,17 +462,15 @@ function updateOverviewClock() {
     if (dateEl) dateEl.textContent = date;
 }
 
-function updateOverviewStorageUi(diskPercent, diskUsed, diskTotal) {
+function updateOverviewStorageUi(diskPercent, diskUsed, diskTotal, animate = false) {
     const storagePercentText = document.getElementById("storagePercentText");
     const storageUsedText = document.getElementById("storageUsedText");
     const storageTotalText = document.getElementById("storageTotalText");
     const storageBarFill = document.getElementById("storageBarFill");
 
-    const color = getUsageColor(diskPercent);  // NEW
-
     if (storagePercentText) {
         storagePercentText.textContent = `${diskPercent.toFixed(1)}%`;
-        storagePercentText.style.color = ""; 
+        storagePercentText.style.color = "";
     }
 
     if (storageUsedText) {
@@ -326,7 +482,11 @@ function updateOverviewStorageUi(diskPercent, diskUsed, diskTotal) {
     }
 
     if (storageBarFill) {
-        storageBarFill.style.width = `${diskPercent}%`;
+        if (animate) {
+            animateOverviewStorageBar(diskPercent);
+        } else {
+            storageBarFill.style.width = `${diskPercent}%`;
+        }
     }
 }
 
@@ -385,6 +545,10 @@ function createOverviewDoughnut(canvasId, initialText = "0%") {
             responsive: true,
             maintainAspectRatio: false,
             cutout: "75%",
+            animation: {
+                duration: 900,
+                easing: "easeOutCubic"
+            },
             plugins: {
                 legend: {
                     display: false
@@ -409,6 +573,7 @@ function initOverviewCharts() {
 
 async function refreshOverview() {
     const data = await api("/system_overview");
+    latestOverviewState = data;
 
     const cpuPercent = Math.max(0, Math.min(data.cpuPercent ?? 0, 100));
     const ramPercent = Math.max(0, Math.min(data.memory?.percent ?? 0, 100));
@@ -423,30 +588,41 @@ async function refreshOverview() {
     const cpuColor = getUsageColor(cpuPercent);
     const ramColor = getUsageColor(ramPercent);
 
-    if (cpuChart) {
-        cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
-        cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
-        cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
-        cpuChart.options.plugins.centerText.color = cpuColor;
-        cpuChart.update();
-    }
+    if (!overviewAnimationPlayed) {
+        animateOverviewDoughnut("cpu", cpuChart, cpuPercent, cpuColor);
+        animateOverviewDoughnut("ram", ramChart, ramPercent, ramColor);
+        updateOverviewStorageUi(diskPercent, diskUsed, diskTotal, true);
+        overviewAnimationPlayed = true;
+    } else {
+        if (cpuChart) {
+            cpuChart.data.datasets[0].data = [cpuPercent, 100 - cpuPercent];
+            cpuChart.data.datasets[0].backgroundColor = [cpuColor, "#cbd5e1"];
+            cpuChart.options.plugins.centerText.text = `${cpuPercent.toFixed(0)}%`;
+            cpuChart.options.plugins.centerText.color = cpuColor;
+            cpuChart.update("none");
+        }
 
-    if (ramChart) {
-        ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
-        ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
-        ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
-        ramChart.options.plugins.centerText.color = ramColor;
-        ramChart.update();
+        if (ramChart) {
+            ramChart.data.datasets[0].data = [ramPercent, 100 - ramPercent];
+            ramChart.data.datasets[0].backgroundColor = [ramColor, "#cbd5e1"];
+            ramChart.options.plugins.centerText.text = `${ramPercent.toFixed(0)}%`;
+            ramChart.options.plugins.centerText.color = ramColor;
+            ramChart.update("none");
+        }
+
+        updateOverviewStorageUi(diskPercent, diskUsed, diskTotal, false);
     }
 
     const cpuUnitsText = document.getElementById("cpuUnitsText");
     const ramUnitsText = document.getElementById("ramUnitsText");
-    const storagePercentText = document.getElementById("storagePercentText");
-    const storageUsedText = document.getElementById("storageUsedText");
-    const storageTotalText = document.getElementById("storageTotalText");
-    const storageBarFill = document.getElementById("storageBarFill");
 
-    updateOverviewStorageUi(diskPercent, diskUsed, diskTotal);
+    if (cpuUnitsText) {
+        cpuUnitsText.textContent = cpuFreqGHz != null ? `${cpuFreqGHz.toFixed(2)} GHz` : "- GHz";
+    }
+
+    if (ramUnitsText) {
+        ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
+    }
 }
 
 /* -------------------- Schedule -------------------- */
@@ -543,8 +719,13 @@ function initScheduleTimeInputs() {
     });
 }
 
-async function loadSchedule() {
-    const data = await api("/get_schedule");
+async function loadSchedule(useInitial = false) {
+    const data = useInitial
+        ? {
+            ...initialState.schedule,
+            measuringAllowedNow: true
+        }
+        : await api("/get_schedule");
 
     const enabled = document.getElementById("scheduleEnabled");
     const start = document.getElementById("scheduleStartTime");
@@ -641,6 +822,10 @@ function initStorageChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 900,
+                easing: "easeOutCubic"
+            },
             plugins: {
                 legend: {
                     display: true
@@ -658,8 +843,9 @@ function initStorageChart() {
     });
 }
 
-async function refreshStorageStatus() {
+async function refreshStorageStatus(animate = true) {
     const data = await api("/storage_status");
+    latestStorageState = data;
 
     const sizeBytes = Math.max(data.dbSizeBytes ?? 0, 0);
     const limitBytes = Math.max(data.dbLimitBytes ?? 0, 0);
@@ -674,14 +860,21 @@ async function refreshStorageStatus() {
     document.getElementById("dbLimitValue").value = data.dbLimitValue;
     document.getElementById("dbLimitUnit").value = data.dbLimitUnit;
 
+    applyDbLimitInputConstraints(data.dbLimitUnit);
+
     const notice = document.getElementById("storageLimitNotice");
     notice.textContent = data.loggingStoppedByLimit
         ? "Logging stopped because the database reached the configured limit."
         : "Logging stops automatically when the configured limit is reached.";
 
     if (storageChart) {
-        storageChart.data.datasets[0].data = [usedBytes, freeBytes];
-        storageChart.update();
+        if (animate && !storageAnimationPlayed) {
+            animateStoragePieChart(usedBytes, freeBytes);
+            storageAnimationPlayed = true;
+        } else {
+            storageChart.data.datasets[0].data = [usedBytes, freeBytes];
+            storageChart.update("none");
+        }
     }
 
     if (data.loggingStoppedByLimit) {
@@ -693,22 +886,34 @@ async function refreshStorageStatus() {
 }
 
 async function saveDbLimit() {
-    let value = parseFloat(document.getElementById("dbLimitValue").value);
+    const input = document.getElementById("dbLimitValue");
     const unit = document.getElementById("dbLimitUnit").value;
 
-    if (!Number.isFinite(value) || value <= 0) {
+    applyDbLimitInputConstraints(unit);
+
+    let value = parseFloat(input.value);
+
+    if (!Number.isFinite(value)) {
         alert("Please enter a valid database limit.");
+        input.focus();
         return;
     }
 
-    // round to next multiple of 4, min 4
-    value = Math.max(4, Math.ceil(value / 4) * 4);
+    const { min } = getDbLimitConstraints(unit);
 
-    // reflect in UI immediately
-    document.getElementById("dbLimitValue").value = value;
+    if (value < min) {
+        value = min;
+        input.value = String(min);
+    }
 
-    await api(`/set_db_limit?value=${encodeURIComponent(value)}&unit=${encodeURIComponent(unit)}`);
-    await refreshStorageStatus();
+    const result = await api(`/set_db_limit?value=${encodeURIComponent(value)}&unit=${encodeURIComponent(unit)}`);
+
+    if (result.error) {
+        alert(result.error);
+        return;
+    }
+
+    await refreshStorageStatus(false);
     await initLogging();
 }
 
@@ -785,8 +990,7 @@ function initWebSocket() {
             document.getElementById("tp2").textContent = "-";
 
             document.getElementById("delta_tp").textContent = "-";
-            document.getElementById("relay").dataset.relayState = "OFF";
-            document.getElementById("relay").textContent = "OFF";
+            applyRelayState("OFF");
 
             updateRuntime();
 
@@ -826,8 +1030,7 @@ function initWebSocket() {
         document.getElementById("tp2").textContent = data.tp2;
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
-        document.getElementById("relay").dataset.relayState = data.relay;
-        document.getElementById("relay").textContent = data.relay;
+        applyRelayState(data.relay);
 
         updateRuntime();
 
@@ -866,6 +1069,8 @@ function initWebSocket() {
 }
 
 function updateOverviewFromWs(system) {
+    latestOverviewState = system;
+
     const cpuPercent = Math.max(0, Math.min(system.cpuPercent ?? 0, 100));
     const ramPercent = Math.max(0, Math.min(system.memory?.percent ?? 0, 100));
     const ramUsed = system.memory?.used ?? 0;
@@ -906,10 +1111,12 @@ function updateOverviewFromWs(system) {
         ramUnitsText.textContent = `${formatBytesToBestUnit(ramUsed)} / ${formatBytesToBestUnit(ramTotal)}`;
     }
 
-    updateOverviewStorageUi(diskPercent, diskUsed, diskTotal);
+    updateOverviewStorageUi(diskPercent, diskUsed, diskTotal, false);
 }
 
 function updateStorageFromWs(data) {
+    latestStorageState = data;
+
     const sizeBytes = Math.max(data.dbSizeBytes ?? 0, 0);
     const limitBytes = Math.max(data.dbLimitBytes ?? 0, 0);
     const usedBytes = Math.min(sizeBytes, limitBytes);
@@ -922,6 +1129,8 @@ function updateStorageFromWs(data) {
     document.getElementById("dbUsageText").textContent = `${usedPercent.toFixed(1)}%`;
     document.getElementById("dbLimitValue").value = data.dbLimitValue;
     document.getElementById("dbLimitUnit").value = data.dbLimitUnit;
+
+    applyDbLimitInputConstraints(data.dbLimitUnit);
 
     const notice = document.getElementById("storageLimitNotice");
     notice.textContent = data.loggingStoppedByLimit
@@ -967,7 +1176,10 @@ function formatCpuGHz(value) {
 }
 
 async function startMeasurements() {
-    const count = document.getElementById("measure_count").value;
+    const input = document.getElementById("measure_count");
+    const count = clampMeasurementCount(input.value);
+    input.value = count;
+
     const status = document.getElementById("measureStatus");
     const circle = document.querySelector(".progress-circle .progress");
 
@@ -1000,11 +1212,11 @@ async function startMeasurements() {
         status.style.color = "var(--danger)";
         status.textContent = "Stopped: DB limit reached";
 
-        await refreshStorageStatus();
+        await refreshStorageStatus(false);
         return;
     }
 
-    await refreshStorageStatus();
+    await refreshStorageStatus(false);
     await initLogging();
 }
 
@@ -1064,11 +1276,15 @@ async function runSQL(query) {
 
     tableContainer.innerHTML = "";
     textOutput.textContent = "";
+    tableContainer.style.display = "none";
+    textOutput.style.display = "none";
 
     if (result.type === "table") {
         tableContainer.appendChild(createTable(result.columns, result.rows));
+        tableContainer.style.display = "block";
     } else {
         textOutput.textContent = JSON.stringify(result.data, null, 2);
+        textOutput.style.display = "block";
     }
 }
 
@@ -1091,12 +1307,10 @@ async function resetTable() {
 /* -------------------- Logging -------------------- */
 
 async function initLogging() {
-    const data = await api("/get_logging");
-
     const toggle = document.getElementById("logToggle");
     const label = document.getElementById("logLabel");
 
-    toggle.checked = data.logging;
+    toggle.checked = !!initialState.logging;
 
     function updateLabel(enabled) {
         label.textContent = enabled
@@ -1110,7 +1324,7 @@ async function initLogging() {
 
         toggle.checked = !!result.logging;
         updateLabel(toggle.checked);
-        await refreshStorageStatus();
+        await refreshStorageStatus(false);
     };
 
     updateLabel(toggle.checked);
@@ -1155,8 +1369,7 @@ async function initTheme() {
 /* -------------------- Interval -------------------- */
 
 async function initInterval() {
-    const data = await api("/get_interval");
-    document.getElementById("interval").value = data.interval ?? 2;
+    document.getElementById("interval").value = initialState.interval ?? 2;
 }
 
 async function setinterval() {
@@ -1196,10 +1409,8 @@ function startProgress(duration) {
 /* -------------------- Limit ------------------- */
 
 async function initPointLimit() {
-    const data = await api("/get_point_limit");
-
     const select = document.getElementById("pointLimit");
-    const value = data.pointLimit ?? 10;
+    const value = initialState.pointLimit ?? 10;
 
     select.value = value;
     maxPoints = parseInt(value, 10);
@@ -1212,14 +1423,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initCollapsibleCards();
     await initEditMode();
 
-    document.body.classList.remove("ui-loading");
-
     initChart();
     initRelayChart();
     initStorageChart();
     initOverviewCharts();
     initScheduleDayButtons();
     initScheduleTimeInputs();
+    initDragAndDrop();
+
+    await initPointLimit();
+    await initLogging();
+    await initInterval();
+    await initTheme();
+    await loadSchedule(true);
+
+    document.getElementById("measure_count")?.addEventListener("input", (e) => {
+        const value = e.target.value.replace(/[^\d]/g, "");
+        e.target.value = value === "" ? "" : String(clampMeasurementCount(value));
+    });
+
+    document.getElementById("dbLimitUnit")?.addEventListener("change", (e) => {
+        applyDbLimitInputConstraints(e.target.value);
+    });
 
     updateOverviewClock();
     if (!clockTimer) {
@@ -1245,25 +1470,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         relayChart.update();
     });
 
-    await initPointLimit();
+    document.body.classList.remove("ui-loading");
 
-    initDragAndDrop();
-
-    await Promise.all([
-        initLogging(),
-        initTheme(),
-        initInterval(),
-        refreshStorageStatus(),
-        refreshOverview(),
-        loadSchedule()
-    ]);
-
-    initWebSocket();
+    await sleep(250);
+    await playStartupSequence();
 });
 
 async function initCollapsibleCards() {
-    const res = await api("/get_collapsed_cards");
-    const collapsedCards = res.collapsedCards || {};
+    const collapsedCards = initialState.collapsedCards || {};
 
     document.querySelectorAll(".card").forEach(card => {
         const id = card.id;
@@ -1276,7 +1490,7 @@ async function initCollapsibleCards() {
         }
 
         btn.addEventListener("click", async () => {
-            card.classList.toggle("collapsed");
+            const isCollapsed = card.classList.toggle("collapsed");
 
             const updated = {};
             document.querySelectorAll(".card").forEach(c => {
@@ -1288,12 +1502,21 @@ async function initCollapsibleCards() {
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(updated)
             });
+
+            if (!isCollapsed) {
+                requestAnimationFrame(() => {
+                    chart?.resize();
+                    relayChart?.resize();
+                    storageChart?.resize();
+                    cpuChart?.resize();
+                    ramChart?.resize();
+                });
+            }
         });
     });
 }
 
 async function initCardOrder() {
-    const data = await api("/get_card_order");
-    applyCardOrder(data.cardOrder || []);
+    applyCardOrder(initialState.cardOrder || []);
     buildNavbar();
 }

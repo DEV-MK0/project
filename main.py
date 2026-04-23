@@ -8,7 +8,7 @@ import csv
 import os
 import shutil
 import socket
-from math import log10, ceil
+from math import log10
 from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Body, Query
 from fastapi.staticfiles import StaticFiles
@@ -77,11 +77,21 @@ def state_set(key, value):
 
 # -------------------- Core Logic --------------------
 
-
-def round_up_to_multiple_of_4(value):
+def normalize_db_limit_value(value, unit):
     value = float(value)
-    return max(4, int(ceil(value / 4.0) * 4))
+    unit = (unit or "KB").upper()
 
+    if unit == "KB":
+        if value < 16:
+            raise ValueError("KB limit must be at least 16")
+    else:
+        if value <= 0:
+            raise ValueError("value must be greater than 0")
+
+    if value.is_integer():
+        return int(value)
+
+    return value
 
 def taupunkt(t, r):
     a, b = (7.5, 237.3) if t >= 0 else (7.6, 240.7)
@@ -490,9 +500,17 @@ def execute_sql(command: SQLCommand):
 
 @app.post("/measurements/start")
 async def start_measurements(count: int = Body(..., embed=True)):
+    if count < 1:
+        return {"error": "count must be at least 1"}
+
+    stored = 0
     for _ in range(count):
-        save_measurement_once()
-    return {"stored": count}
+        if save_measurement_once():
+            stored += 1
+        else:
+            break
+
+    return {"stored": stored, "requested": count}
 
 
 @app.get("/set_logging")
@@ -523,17 +541,17 @@ def set_db_limit(value: float, unit: str):
     if unit not in ["KB", "MB", "GB", "TB"]:
         return {"error": "invalid unit"}
 
-    if value <= 0:
-        return {"error": "value must be greater than 0"}
+    try:
+        normalized_value = normalize_db_limit_value(value, unit)
+    except ValueError as e:
+        return {"error": str(e)}
 
-    rounded_value = round_up_to_multiple_of_4(value)
-
-    state_set("dbLimitValue", rounded_value)
+    state_set("dbLimitValue", normalized_value)
     state_set("dbLimitUnit", unit)
     enforce_db_limit()
 
     status = get_storage_status()
-    status["roundedInputValue"] = rounded_value
+    status["savedValue"] = normalized_value
     return status
 
 @app.get("/get_schedule")

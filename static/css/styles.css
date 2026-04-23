@@ -221,12 +221,39 @@ button.info:hover {
 
 
 input,
-textarea {
-  padding: 10px;
+textarea,
+select {
+  padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   font-size: 14px;
   width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 input[type="number"] {
@@ -614,7 +641,11 @@ html.dark .overview-storage-bar {
   width: 0%;
   background: linear-gradient(90deg, #22c55e, #2563eb);
   border-radius: 999px;
-  transition: width 0.3s ease;
+  transition: width 0.9s ease;
+}
+
+.overview-storage-bar-fill.no-transition {
+  transition: none !important;
 }
 
 .overview-storage-meta {
@@ -894,4 +925,46 @@ body.edit-mode #cardsContainer .card-header {
     flex: 1 1 calc(25% - 10px);
     min-width: 48px;
   }
+}
+
+#relay.relay-on {
+  color: var(--success);
+}
+
+#relay.relay-off {
+  color: var(--danger);
+}
+
+#sql textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#sqlTableContainer {
+  display: none;
+  margin-top: 16px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+#sqlTableContainer table {
+  margin-top: 0;
+  min-width: 100%;
+}
+
+#sqlResult {
+  display: none;
+  margin-top: 16px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  box-sizing: border-box;
 }
