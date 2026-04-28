@@ -968,3 +968,19 @@ body.edit-mode #cardsContainer .card-header {
   color: var(--text);
   box-sizing: border-box;
 }
+
+button:disabled {
+  background: #9ca3af;
+  color: #e5e7eb;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+button:disabled:hover {
+  background: #9ca3af;
+}
+
+#measureStartBtn {
+  width: 175px;
+  text-align: center;
+}

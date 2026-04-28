@@ -18,6 +18,8 @@ let latestOverviewState = null;
 let latestStorageState = null;
 let overviewAnimationPlayed = false;
 let storageAnimationPlayed = false;
+let measurementInProgress = false;
+let progressAnimationFrame = null;
 const chartAnimationFrames = {
     cpu: null,
     ram: null,
@@ -94,6 +96,65 @@ function createTable(columns, rows) {
 
     table.appendChild(tbody);
     return table;
+}
+
+function getTemperatureIcon(value) {
+    const temp = parseFloat(value);
+
+    if (!Number.isFinite(temp)) return "";
+    if (temp < 0) return "🥶";
+    if (temp < 10) return "❄️";
+    if (temp < 20) return "🌤️";
+    if (temp < 28) return "🌡️";
+    return "🔥";
+}
+
+function setTemperatureCell(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (value === "-" || value == null) {
+        el.textContent = "-";
+        return;
+    }
+
+    el.textContent = `${getTemperatureIcon(value)} ${value}`;
+}
+
+function resetMeasurementProgress() {
+    const circle = document.querySelector(".progress-circle .progress");
+    const status = document.getElementById("measureStatus");
+
+    const radius = 16;
+    const circumference = 2 * Math.PI * radius;
+
+    if (progressAnimationFrame) {
+        cancelAnimationFrame(progressAnimationFrame);
+        progressAnimationFrame = null;
+    }
+
+    circle.style.stroke = "var(--success)";
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = circumference;
+
+    status.style.display = "none";
+    status.style.color = "var(--success)";
+    status.textContent = "✓ Done";
+}
+
+function finishMeasurementProgress(success = true) {
+    const circle = document.querySelector(".progress-circle .progress");
+    const radius = 16;
+    const circumference = 2 * Math.PI * radius;
+
+    if (progressAnimationFrame) {
+        cancelAnimationFrame(progressAnimationFrame);
+        progressAnimationFrame = null;
+    }
+
+    circle.style.stroke = success ? "var(--success)" : "var(--danger)";
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = 0;
 }
 
 function getCardsContainer() {
@@ -981,13 +1042,13 @@ function initWebSocket() {
         const data = JSON.parse(event.data);
 
         if (data.scheduleBlocked) {
-            document.getElementById("t1").textContent = "-";
-            document.getElementById("h1").textContent = "-";
-            document.getElementById("tp1").textContent = "-";
+            setTemperatureCell("t1", data.t1);
+            document.getElementById("h1").textContent = data.h1;
+            setTemperatureCell("tp1", data.tp1);
 
-            document.getElementById("t2").textContent = "-";
-            document.getElementById("h2").textContent = "-";
-            document.getElementById("tp2").textContent = "-";
+            setTemperatureCell("t2", data.t2);
+            document.getElementById("h2").textContent = data.h2;
+            setTemperatureCell("tp2", data.tp2);
 
             document.getElementById("delta_tp").textContent = "-";
             applyRelayState("OFF");
@@ -1021,13 +1082,13 @@ function initWebSocket() {
             runtimeTimer = setInterval(updateRuntime, 1000);
         }
 
-        document.getElementById("t1").textContent = data.t1;
+        setTemperatureCell("t1", data.t1);
         document.getElementById("h1").textContent = data.h1;
-        document.getElementById("tp1").textContent = data.tp1;
+        setTemperatureCell("tp1", data.tp1);
 
-        document.getElementById("t2").textContent = data.t2;
+        setTemperatureCell("t2", data.t2);
         document.getElementById("h2").textContent = data.h2;
-        document.getElementById("tp2").textContent = data.tp2;
+        setTemperatureCell("tp2", data.tp2);
 
         document.getElementById("delta_tp").textContent = data.delta_tp;
         applyRelayState(data.relay);
@@ -1176,48 +1237,77 @@ function formatCpuGHz(value) {
 }
 
 async function startMeasurements() {
+    if (measurementInProgress) return;
+
     const input = document.getElementById("measure_count");
-    const count = clampMeasurementCount(input.value);
-    input.value = count;
+    const startButton = document.getElementById("measureStartBtn");
 
-    const status = document.getElementById("measureStatus");
-    const circle = document.querySelector(".progress-circle .progress");
-
-    status.style.display = "none";
-    status.style.color = "var(--success)";
-    status.textContent = "✓ Done";
-
-    const intervalValue = parseFloat(document.getElementById("interval").value) || 2;
-    const duration = count * intervalValue;
-
-    startProgress(duration);
-
-    const result = await api(`/save_measurements?count=${count}`);
-
-    if (result.status === "blocked_by_schedule") {
-        circle.style.stroke = "var(--danger)";
-        circle.style.strokeDashoffset = 0;
-
-        status.style.display = "inline";
-        status.style.color = "var(--danger)";
-        status.textContent = "Blocked by schedule";
+    if (!input || !startButton) {
+        console.error("Missing measure_count or measureStartBtn");
         return;
     }
 
-    if (result.status === "stopped") {
-        circle.style.stroke = "var(--danger)";
-        circle.style.strokeDashoffset = 0;
+    measurementInProgress = true;
+    startButton.disabled = true;
+    startButton.textContent = "Measuring...";
+    input.disabled = true;
 
+    try {
+        const count = clampMeasurementCount(input.value);
+        input.value = count;
+
+        resetMeasurementProgress();
+
+        const intervalValue = parseFloat(document.getElementById("interval")?.value) || 2;
+        const duration = count * intervalValue;
+
+        startProgress(duration);
+
+        const result = await api(`/save_measurements?count=${count}`);
+
+        if (result.status === "blocked_by_schedule") {
+            finishMeasurementProgress(false);
+
+            const status = document.getElementById("measureStatus");
+            status.style.display = "inline";
+            status.style.color = "var(--danger)";
+            status.textContent = "Blocked by schedule";
+            return;
+        }
+
+        if (result.status === "stopped") {
+            finishMeasurementProgress(false);
+
+            const status = document.getElementById("measureStatus");
+            status.style.display = "inline";
+            status.style.color = "var(--danger)";
+            status.textContent = "Stopped: DB limit reached";
+
+            await refreshStorageStatus(false);
+            return;
+        }
+
+        finishMeasurementProgress(true);
+
+        const status = document.getElementById("measureStatus");
         status.style.display = "inline";
-        status.style.color = "var(--danger)";
-        status.textContent = "Stopped: DB limit reached";
+        status.style.color = "var(--success)";
+        status.textContent = "✓ Done";
 
         await refreshStorageStatus(false);
-        return;
-    }
+    } catch (err) {
+        console.error("Manual measurement failed:", err);
 
-    await refreshStorageStatus(false);
-    await initLogging();
+        const status = document.getElementById("measureStatus");
+        status.style.display = "inline";
+        status.style.color = "var(--danger)";
+        status.textContent = "Measurement failed";
+    } finally {
+        measurementInProgress = false;
+        startButton.disabled = false;
+        startButton.textContent = "Start Measurements";
+        input.disabled = false;
+    }
 }
 
 function exportCSV() {
@@ -1315,7 +1405,8 @@ async function initLogging() {
     const toggle = document.getElementById("logToggle");
     const label = document.getElementById("logLabel");
 
-    toggle.checked = !!initialState.logging;
+    const currentState = await api("/get_logging");
+    toggle.checked = !!currentState.logging;
 
     function updateLabel(enabled) {
         label.textContent = enabled
@@ -1391,7 +1482,9 @@ function startProgress(duration) {
     const radius = 16;
     const circumference = 2 * Math.PI * radius;
 
+    circle.style.stroke = "var(--success)";
     circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = circumference;
 
     let start;
 
@@ -1402,13 +1495,14 @@ function startProgress(duration) {
         circle.style.strokeDashoffset = circumference * (1 - progress);
 
         if (progress < 1) {
-            requestAnimationFrame(animate);
+            progressAnimationFrame = requestAnimationFrame(animate);
         } else {
+            progressAnimationFrame = null;
             status.style.display = "inline";
         }
     }
 
-    requestAnimationFrame(animate);
+    progressAnimationFrame = requestAnimationFrame(animate);
 }
 
 /* -------------------- Limit ------------------- */
