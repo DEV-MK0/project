@@ -11,4 +11,4 @@ source venv/bin/activate
 cd "$(dirname "$0")"
 
 # Start FastAPI app
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main-demo:app --host 0.0.0.0 --port 8000

@@ -16,7 +16,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import StringIO
-import RPi.GPIO as GPIO
 
 START_TIME = time.time()
 PROGRAM_START_TS = int(START_TIME)
@@ -35,56 +34,6 @@ STATE_FILE = "state.json"
 interval = 2
 logging_thread = None
 
-RELAY_PIN = 21  # BCM pin 21 = physical pin 40
-GPIO_READY = False
-relay_thread = None
-
-# -------------------- Relay Handling --------------------
-
-def init_gpio():
-    global GPIO_READY
-
-    if GPIO_READY:
-        return
-
-    GPIO.setwarnings(False)
-
-    mode = GPIO.getmode()
-    if mode is None:
-        GPIO.setmode(GPIO.BCM)
-    elif mode != GPIO.BCM:
-        raise RuntimeError(f"GPIO mode already set to {mode}, expected BCM")
-
-    # Active-low relay:
-    # HIGH = OFF
-    # LOW = ON
-    GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)
-
-    GPIO_READY = True
-
-
-def set_relay(on: bool):
-    if not GPIO_READY:
-        init_gpio()
-
-    GPIO.output(RELAY_PIN, GPIO.LOW if on else GPIO.HIGH)
-
-
-def relay_off():
-    try:
-        GPIO.output(RELAY_PIN, GPIO.HIGH)
-    except Exception:
-        pass
-
-def relay_loop():
-    while True:
-        try:
-            compute_measurement()
-            time.sleep(interval)
-        except Exception as e:
-            print("Relay loop error:", e)
-            relay_off()
-            time.sleep(interval)
 
 # -------------------- State Handling --------------------
 
@@ -176,8 +125,6 @@ def compute_measurement():
         and t1 >= TEMP1_min
         and t2 >= TEMP2_min
     )
-
-    set_relay(relay_on)
 
     return {
         "t1": t1,
@@ -836,22 +783,6 @@ def get_edit_mode():
 def set_edit_mode(enabled: bool):
     state_set("editMode", enabled)
     return {"editMode": enabled}
-
-@app.on_event("startup")
-def startup_event():
-    global relay_thread
-
-    init_gpio()
-
-    if relay_thread is None or not relay_thread.is_alive():
-        relay_thread = threading.Thread(target=relay_loop, daemon=True)
-        relay_thread.start()
-
-
-@app.on_event("shutdown")
-def shutdown_event():
-    relay_off()
-    GPIO.cleanup()
 
 # -------------------- Init --------------------
 
