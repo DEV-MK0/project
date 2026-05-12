@@ -58,7 +58,8 @@ def load_state():
                 "endTime": "00:00",
                 "action": "ON",
                 "days": ["MO", "TU", "WE", "TH", "FR"]
-            }
+            },
+            "taupunktThreshold": 6.0
 }
 
 def _save_state():
@@ -121,7 +122,7 @@ def compute_measurement():
     delta_tp = tp1 - tp2
 
     relay_on = (
-        delta_tp > (SCHALTmin + HYSTERESE)
+        delta_tp > state_get("taupunktThreshold", 6.0)
         and t1 >= TEMP1_min
         and t2 >= TEMP2_min
     )
@@ -139,6 +140,13 @@ def compute_measurement():
         "program_start_ts": PROGRAM_START_TS
     }
 
+@app.get("/set_taupunkt_threshold")
+def set_taupunkt_threshold(value: float):
+    if value < 0:
+        return {"error": "value must be 0 or greater"}
+
+    state_set("taupunktThreshold", float(value))
+    return {"taupunktThreshold": float(value)}
 
 # -------------------- Database --------------------
 

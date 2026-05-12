@@ -27,8 +27,6 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-SCHALTmin = 5.0
-HYSTERESE = 1.0
 TEMP1_min = 10.0
 TEMP2_min = -10.0
 DB_FILE = "measurements.db"
@@ -115,7 +113,8 @@ def load_state():
                 "endTime": "00:00",
                 "action": "ON",
                 "days": ["MO", "TU", "WE", "TH", "FR"]
-            }
+            },
+            "taupunktThreshold": 6.0
 }
 
 def _save_state():
@@ -131,6 +130,14 @@ def state_set(key, value):
     state[key] = value
     _save_state()
 
+
+@app.get("/set_taupunkt_threshold")
+def set_taupunkt_threshold(value: float):
+    if value < 0:
+        return {"error": "value must be 0 or greater"}
+
+    state_set("taupunktThreshold", float(value))
+    return {"taupunktThreshold": float(value)}
 
 # -------------------- Core Logic --------------------
 
@@ -203,7 +210,7 @@ def compute_measurement():
         delta_tp = tp1 - tp2
 
         relay_on = (
-            delta_tp > (SCHALTmin + HYSTERESE)
+            delta_tp > state_get("taupunktThreshold", 6.0)
             and t1 >= TEMP1_min
             and t2 >= TEMP2_min
         )

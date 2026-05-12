@@ -157,8 +157,9 @@ h2 {
 #chart-settings .settings-row {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex-wrap: nowrap;      /* keeps it in one row on desktop */
+  gap: 18px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 #chart-settings .setting-item {
@@ -166,11 +167,23 @@ h2 {
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Optional: make interval input compact in the row */
 #chart-settings #interval {
-  width: 90px;
+  width: 80px;
+}
+
+#chart-settings #taupunktThreshold {
+  width: 80px;
+}
+
+#chart-settings #pointLimit {
+  width: 80px;
+}
+
+#chart-settings #taupunktThreshold {
+  width: 110px;
 }
 
 button {
@@ -409,10 +422,9 @@ tr:nth-child(even) td {
   transform: translateX(22px);
 }
 
-/* Mobile fallback */
 @media (max-width: 700px) {
   #chart-settings .settings-row {
-    flex-wrap: wrap;      /* stack only on small screens */
+    flex-wrap: wrap;
     gap: 12px;
   }
 }

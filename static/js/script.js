@@ -1314,6 +1314,32 @@ function exportCSV() {
     window.location.href = "/measurements/export";
 }
 
+async function initTaupunktThreshold() {
+    const input = document.getElementById("taupunktThreshold");
+    if (!input) return;
+
+    input.value = initialState.taupunktThreshold ?? 6;
+
+    input.addEventListener("change", async () => {
+        const value = parseFloat(input.value);
+
+        if (!Number.isFinite(value) || value < 0) {
+            input.value = "6";
+            alert("Please enter a valid taupunkt threshold.");
+            return;
+        }
+
+        const result = await api(`/set_taupunkt_threshold?value=${encodeURIComponent(value)}`);
+
+        if (result.error) {
+            alert(result.error);
+            return;
+        }
+
+        input.value = result.taupunktThreshold;
+    });
+}
+
 /* ------------------- Relay ------------------- */
 
 function initRelayChart() {
@@ -1533,6 +1559,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await initPointLimit();
     await initLogging();
     await initInterval();
+    await initTaupunktThreshold();
     await initTheme();
     await loadSchedule(true);
 
