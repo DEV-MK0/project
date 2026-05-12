@@ -481,6 +481,23 @@ _prev_cpu_total = None
 _prev_cpu_idle = None
 
 def get_cpu_frequency_ghz():
+    # Raspberry Pi / ARM Linux
+    try:
+        with open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "r") as f:
+            khz = float(f.read().strip())
+            return round(khz / 1_000_000.0, 2)
+    except Exception:
+        pass
+
+    # Some Linux systems expose current frequency here
+    try:
+        with open("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq", "r") as f:
+            khz = float(f.read().strip())
+            return round(khz / 1_000_000.0, 2)
+    except Exception:
+        pass
+
+    # x86 fallback
     try:
         with open("/proc/cpuinfo", "r") as f:
             for line in f:
@@ -489,6 +506,7 @@ def get_cpu_frequency_ghz():
                     return round(mhz / 1000.0, 2)
     except Exception:
         pass
+
     return None
 
 def get_cpu_percent():
