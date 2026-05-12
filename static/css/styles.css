@@ -695,7 +695,11 @@ html.dark .overview-storage-bar {
 }
 
 #cardsContainer .card {
-  margin-bottom: 0;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    box-shadow 0.18s ease,
+    outline-color 0.18s ease;
 }
 
 .nav-left {
@@ -760,19 +764,28 @@ body.ui-loading .collapse-btn {
   transition: none !important;
 }
 
-body.edit-mode #cardsContainer .card {
-  cursor: grab;
-  outline: 2px dashed var(--border);
-  outline-offset: 4px;
+#cardsContainer .card {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    box-shadow 0.18s ease,
+    outline-color 0.18s ease;
+  position: relative;
 }
 
 body.edit-mode #cardsContainer .card:hover {
   outline-color: var(--primary);
+  transform: translateY(-2px);
 }
 
 body.edit-mode #cardsContainer .card.dragging {
   cursor: grabbing;
-  opacity: 0.75;
+  opacity: 0.96;
+  transform: translateY(-10px) scale(1.025);
+  box-shadow:
+    0 26px 55px rgba(0, 0, 0, 0.28),
+    0 10px 18px rgba(0, 0, 0, 0.18);
+  z-index: 100;
 }
 
 body.edit-mode #cardsContainer .card .card-body {
