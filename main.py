@@ -16,6 +16,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import StringIO
+import adafruit_dht
+import board
 import RPi.GPIO as GPIO
 
 START_TIME = time.time()
@@ -38,6 +40,10 @@ logging_thread = None
 RELAY_PIN = 21  # BCM pin 21 = physical pin 40
 GPIO_READY = False
 relay_thread = None
+last_valid_measurement = None
+
+dht_device1 = adafruit_dht.DHT22(board.D4)
+dht_device2 = adafruit_dht.DHT22(board.D26)
 
 # -------------------- Relay Handling --------------------
 
@@ -156,40 +162,128 @@ def taupunkt(t, r):
 
 def measure_sensor():
     return (
-        round(random.uniform(15, 25), 1),
-        round(random.uniform(30, 60), 1),
-        round(random.uniform(-5, 20), 1),
-        round(random.uniform(20, 70), 1),
+        dht_device1.temperature,
+        dht_device1.humidity,
+        dht_device2.temperature,
+        dht_device2.humidity,
     )
 
-
-def compute_measurement():
-    t1, h1, t2, h2 = measure_sensor()
+def get_last_valid_or_invalid(reason):
     runtime_seconds = int(time.time() - START_TIME)
 
-    tp1 = taupunkt(t1, h1)
-    tp2 = taupunkt(t2, h2)
-    delta_tp = tp1 - tp2
+    if last_valid_measurement is not None:
+        fallback = last_valid_measurement.copy()
+        fallback["runtime_seconds"] = runtime_seconds
+        fallback["program_start_ts"] = PROGRAM_START_TS
+        fallback["usingLastValidMeasurement"] = True
+        fallback["sensorError"] = True
+        fallback["reason"] = reason
+        return fallback
 
-    relay_on = (
-        delta_tp > (SCHALTmin + HYSTERESE)
-        and t1 >= TEMP1_min
-        and t2 >= TEMP2_min
-    )
+    return invalid_measurement_response(reason)
 
-    set_relay(relay_on)
+def compute_measurement():
+    global last_valid_measurement
 
+    runtime_seconds = int(time.time() - START_TIME)
+
+    try:
+        t1, h1, t2, h2 = measure_sensor()
+
+        if not is_valid_sensor_values(t1, h1, t2, h2):
+            return get_last_valid_or_invalid("invalid_sensor_values")
+
+        t1 = float(t1)
+        h1 = float(h1)
+        t2 = float(t2)
+        h2 = float(h2)
+
+        tp1 = taupunkt(t1, h1)
+        tp2 = taupunkt(t2, h2)
+        delta_tp = tp1 - tp2
+
+        relay_on = (
+            delta_tp > (SCHALTmin + HYSTERESE)
+            and t1 >= TEMP1_min
+            and t2 >= TEMP2_min
+        )
+
+        data = {
+            "t1": round(t1, 1),
+            "h1": round(h1, 1),
+            "t2": round(t2, 1),
+            "h2": round(h2, 1),
+            "tp1": round(tp1, 1),
+            "tp2": round(tp2, 1),
+            "delta_tp": round(delta_tp, 1),
+            "relay": "ON" if relay_on else "OFF",
+            "runtime_seconds": runtime_seconds,
+            "program_start_ts": PROGRAM_START_TS,
+            "usingLastValidMeasurement": False,
+            "sensorError": False
+        }
+
+        last_valid_measurement = data.copy()
+        return data
+
+    except Exception as e:
+        error_text = str(e)
+
+        ignored_errors = [
+            "Checksum did not validate",
+            "A full buffer was not returned",
+            "DHT sensor not found",
+            "math domain error"
+        ]
+
+        if not any(msg in error_text for msg in ignored_errors):
+            print("Measurement error:", error_text)
+
+        return get_last_valid_or_invalid(error_text)
+
+def is_valid_sensor_values(t1, h1, t2, h2):
+    values = [t1, h1, t2, h2]
+
+    if any(v is None for v in values):
+        return False
+
+    try:
+        t1 = float(t1)
+        h1 = float(h1)
+        t2 = float(t2)
+        h2 = float(h2)
+    except Exception:
+        return False
+
+    if not (-40 <= t1 <= 80):
+        return False
+
+    if not (-40 <= t2 <= 80):
+        return False
+
+    if not (1 <= h1 <= 100):
+        return False
+
+    if not (1 <= h2 <= 100):
+        return False
+
+    return True
+
+def invalid_measurement_response(reason="sensor_error"):
     return {
-        "t1": t1,
-        "h1": h1,
-        "t2": t2,
-        "h2": h2,
-        "tp1": round(tp1, 1),
-        "tp2": round(tp2, 1),
-        "delta_tp": round(delta_tp, 1),
-        "relay": "ON" if relay_on else "OFF",
-        "runtime_seconds": runtime_seconds,
-        "program_start_ts": PROGRAM_START_TS
+        "t1": "-",
+        "h1": "-",
+        "t2": "-",
+        "h2": "-",
+        "tp1": "-",
+        "tp2": "-",
+        "delta_tp": "-",
+        "relay": "OFF",
+        "runtime_seconds": int(time.time() - START_TIME),
+        "program_start_ts": PROGRAM_START_TS,
+        "usingLastValidMeasurement": False,
+        "sensorError": True,
+        "reason": reason
     }
 
 
@@ -231,6 +325,10 @@ def save_measurement(data):
 
 def save_measurement_once():
     data = compute_measurement()
+
+    if data.get("sensorError"):
+        return False
+
     return save_measurement(data)
 
 def get_db_size_bytes():
@@ -518,8 +616,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
             await websocket.send_json(data)
             await asyncio.sleep(interval)
+
     except WebSocketDisconnect:
         pass
+
+    except asyncio.CancelledError:
+        pass
+
     except Exception as e:
         print(f"WebSocket error: {e}")
 
